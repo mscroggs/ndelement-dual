@@ -1,0 +1,28 @@
+[features]
+strict = []
+
+[package]
+name = "ndelement-dual"
+version = "0.1.0"
+edition = "2024"
+authors = [
+    "Matthew Scroggs <rust@mscroggs.co.uk>",
+    "Ignacia Fierro-Piccardo <ignaciapiccardo@gmail.com>",
+]
+description = "Dual elements for ndelement and ndgrid."
+license = "BSD-3-Clause"
+homepage = "https://github.com/mscroggs/ndelement-dual"
+repository = "https://github.com/mscroggs/ndelement-dual"
+readme = "README.md"
+keywords = ["numerics"]
+categories = ["mathematics", "science"]
+
+[dependencies]
+ndelement = { git = "https://github.com/bempp/ndelement" }
+ndgrid = { git = "https://github.com/bempp/ndgrid" }
+rlst = { git = "https://github.com/linalg-rs/rlst.git" }
+itertools = "0.14.*"
+
+[dev-dependencies]
+approx = "0.5"
+paste = "1.*"
