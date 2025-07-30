@@ -11,39 +11,32 @@ jobs:
     strategy:
       matrix:
         rust-version: ["stable", "beta", "nightly"]
-        mpi: [ 'mpich', 'openmpi']
-        f_mpi: ["", "mpi,"]
         f_strict: ["", "strict,"]
-        f_serde: ["", "serde,"]
     steps:
       - name: Set up Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: ${{ matrix.rust-version }}
-      - name: Set up MPI
-        uses: mpi4py/setup-mpi@v1
-        with:
-          mpi: ${{ matrix.mpi }}
-      - name: Install cargo-mpirun and cargo-templated-examples
-        run: cargo install cargo-mpirun cargo-templated-examples
+      - name: Install cargo-templated-examples
+        run: cargo install cargo-templated-examples
       - uses: actions/checkout@v4
       - name: Install LAPACK, OpenBLAS
         run:
           sudo apt-get install -y libopenblas-dev liblapack-dev
 
       - name: Build rust library
-        run: cargo build --features "${{matrix.f_mpi}}${{matrix.f_strict}}${{matrix.f_serde}}"
+        run: cargo build --features "${{matrix.f_strict}}"
       - name: Build rust library in release mode
-        run: cargo build --release --features "${{matrix.f_mpi}}${{matrix.f_strict}}${{matrix.f_serde}}"
+        run: cargo build --release --features "${{matrix.f_strict}}"
 
       - name: Run unit tests
-        run: RUST_MIN_STACK=8388608 cargo test --features "${{matrix.f_mpi}}${{matrix.f_strict}}${{matrix.f_serde}}"
+        run: cargo test --features "${{matrix.f_strict}}"
       - name: Run unit tests in release mode
-        run: RUST_MIN_STACK=8388608 cargo test --release --features "${{matrix.f_mpi}}${{matrix.f_strict}}${{matrix.f_serde}}"
+        run: cargo test --release --features "${{matrix.f_strict}}"
       - name: Run tests
-        run: RUST_MIN_STACK=8388608 cargo test --examples --release --features "${{matrix.f_mpi}}${{matrix.f_strict}}${{matrix.f_serde}}"
+        run: cargo test --examples --release --features "${{matrix.f_strict}}"
       - name: Run examples
         run: cargo templated-examples
 
       - name: Build docs
-        run: cargo doc --features "${{matrix.f_mpi}}${{matrix.f_strict}}${{matrix.f_serde}}" --no-deps
+        run: cargo doc --features "${{matrix.f_strict}}" --no-deps
