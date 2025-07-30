@@ -6,7 +6,11 @@ use ndgrid::traits::{Entity, Grid, Topology};
 use std::collections::HashMap;
 
 /// A function space
-pub struct FunctionSpace<'a, G: Grid, F: ElementFamily> {
+pub struct FunctionSpace<
+    'a,
+    G: Grid<EntityDescriptor = ReferenceCellType>,
+    F: ElementFamily<CellType = ReferenceCellType>,
+> {
     grid: &'a G,
     family: &'a F,
     cell_dofs: Vec<Vec<usize>>,

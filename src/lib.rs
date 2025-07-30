@@ -3,9 +3,9 @@
 #![warn(missing_docs)]
 
 mod assembly;
-mod bc;
 mod dual;
 mod grid;
 
 pub use assembly::{FunctionSpace, assemble_mass_matrix};
-pub use grid::bary_refine;
+pub use dual::DualSpace;
+pub use grid::RefinedGrid;

@@ -19,15 +19,17 @@ use std::cmp::max;
 pub fn assemble<
     'a,
     T: RlstScalar,
-    TestG: Grid<T = T::Real, EntityDescriptor = ReferenceCellType>,
-    TrialG: Grid<T = T::Real, EntityDescriptor = ReferenceCellType>,
+    G: Grid<T = T::Real, EntityDescriptor = ReferenceCellType>,
     TestF: ElementFamily<T = T, CellType = ReferenceCellType>,
     TrialF: ElementFamily<T = T, CellType = ReferenceCellType>,
 >(
-    test_space: &FunctionSpace<'a, TestG, TestF>,
-    trial_space: &FunctionSpace<'a, TrialG, TrialF>,
+    test_space: &FunctionSpace<'a, G, TestF>,
+    trial_space: &FunctionSpace<'a, G, TrialF>,
 ) -> Array2D<T> {
-    // TODO: Assert test and trial grids are the same
+    assert_eq!(
+        test_space.grid() as *const G,
+        trial_space.grid() as *const G
+    );
 
     let mut matrix = rlst_dynamic_array2!(T, [test_space.dim(), trial_space.dim()]);
 
