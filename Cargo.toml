@@ -26,4 +26,3 @@ quadraturerules = "0.7.7"
 
 [dev-dependencies]
 approx = "0.5"
-paste = "1.*"
