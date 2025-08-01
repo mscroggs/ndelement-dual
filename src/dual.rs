@@ -97,6 +97,15 @@ pub fn barycentric_representation_coefficients<
     coarse_space: &'a FunctionSpace<'a, G, F>,
     fine_space: &'a FunctionSpace<'a, FineG, F>,
 ) -> Vec<HashMap<usize, T>> {
+    assert_eq!(
+        grid.coarse_grid() as *const G,
+        coarse_space.grid() as *const G
+    );
+    assert_eq!(
+        grid.fine_grid() as *const FineG,
+        fine_space.grid() as *const FineG
+    );
+
     let mut coefficients = vec![HashMap::new(); coarse_space.dim()];
 
     let fine_e = fine_space.family().element(ReferenceCellType::Triangle);
