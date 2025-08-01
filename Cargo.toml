@@ -22,7 +22,8 @@ ndelement = { git = "https://github.com/bempp/ndelement" }
 ndgrid = { git = "https://github.com/bempp/ndgrid" }
 rlst = { git = "https://github.com/linalg-rs/rlst.git" }
 itertools = "0.14.*"
-quadraturerules = "0.7.7"
+quadraturerules = "0.7.8"
 
 [dev-dependencies]
 approx = "0.5"
+rand = "0.9"

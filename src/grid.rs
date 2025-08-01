@@ -7,15 +7,24 @@ use ndgrid::{
 };
 
 /// A grid and its barcentric refinement
-pub struct RefinedGrid<'a, T: RealScalar, G: Grid<T = T, EntityDescriptor = ReferenceCellType>> {
+pub struct RefinedGrid<
+    'a,
+    T: RealScalar,
+    G: Grid<T = T, EntityDescriptor = ReferenceCellType>,
+    FineG: Grid<T = T, EntityDescriptor = ReferenceCellType>,
+> {
     grid: &'a G,
-    bgrid: SingleElementGrid<T, CiarletElement<T, IdentityMap>>,
+    bgrid: FineG,
     child_map: Vec<Vec<usize>>,
     parent_map: Vec<(usize, usize)>,
 }
 
-impl<'a, T: RealScalar, G: Grid<T = T, EntityDescriptor = ReferenceCellType>>
-    RefinedGrid<'a, T, G>
+impl<
+    'a,
+    T: RealScalar,
+    G: Grid<T = T, EntityDescriptor = ReferenceCellType>,
+    FineG: Grid<T = T, EntityDescriptor = ReferenceCellType>,
+> RefinedGrid<'a, T, G, FineG>
 {
     /// Coarse unrefined grid
     pub fn coarse_grid(&self) -> &'a G {
@@ -23,7 +32,7 @@ impl<'a, T: RealScalar, G: Grid<T = T, EntityDescriptor = ReferenceCellType>>
     }
 
     /// Barycentrically refined grid
-    pub fn fine_grid(&self) -> &SingleElementGrid<T, CiarletElement<T, IdentityMap>> {
+    pub fn fine_grid(&self) -> &FineG {
         &self.bgrid
     }
 
@@ -36,7 +45,11 @@ impl<'a, T: RealScalar, G: Grid<T = T, EntityDescriptor = ReferenceCellType>>
     pub fn parent(&self, fine_cell_index: usize) -> (usize, usize) {
         self.parent_map[fine_cell_index]
     }
+}
 
+impl<'a, T: RealScalar, G: Grid<T = T, EntityDescriptor = ReferenceCellType>>
+    RefinedGrid<'a, T, G, SingleElementGrid<T, CiarletElement<T, IdentityMap>>>
+{
     /// Barycentrically refine a grid
     pub fn new(grid: &'a G) -> Self {
         if grid.topology_dim() != 2 {
