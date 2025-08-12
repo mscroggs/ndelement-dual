@@ -26,31 +26,29 @@ impl<
     /// Create new
     pub fn new(grid: &'a G, family: &'a F) -> Self {
         let mut dofmap: HashMap<(usize, usize), Vec<usize>> = HashMap::new();
-        let elements = grid
-            .cell_types()
-            .iter()
-            .map(|c| (*c, family.element(*c)))
-            .collect::<HashMap<_, _>>();
         let mut cell_dofs = vec![];
         for _ in 0..grid.cell_count() {
             cell_dofs.push(vec![]);
         }
         let mut dof_n = 0;
-        for cell in grid.entity_iter(grid.topology_dim()) {
-            let element = &elements[&cell.entity_type()];
-            for d in 0..=grid.topology_dim() {
-                for (i, e) in cell.topology().sub_entity_iter(d).enumerate() {
-                    let entity_dofs = element.entity_dofs(d, i).unwrap();
-                    if !entity_dofs.is_empty() {
-                        for dof in dofmap.entry((d, e)).or_insert_with(|| {
-                            dof_n += entity_dofs.len();
-                            entity_dofs
-                                .iter()
-                                .enumerate()
-                                .map(|(i, _)| dof_n - entity_dofs.len() + i)
-                                .collect::<Vec<_>>()
-                        }) {
-                            cell_dofs[cell.local_index()].push(*dof);
+        for ct in grid.cell_types() {
+            let element = family.element(*ct);
+
+            for cell in grid.cell_iter_by_type(*ct) {
+                for d in 0..=grid.topology_dim() {
+                    for (i, e) in cell.topology().sub_entity_iter(d).enumerate() {
+                        let entity_dofs = element.entity_dofs(d, i).unwrap();
+                        if !entity_dofs.is_empty() {
+                            for dof in dofmap.entry((d, e)).or_insert_with(|| {
+                                dof_n += entity_dofs.len();
+                                entity_dofs
+                                    .iter()
+                                    .enumerate()
+                                    .map(|(i, _)| dof_n - entity_dofs.len() + i)
+                                    .collect::<Vec<_>>()
+                            }) {
+                                cell_dofs[cell.local_index()].push(*dof);
+                            }
                         }
                     }
                 }
