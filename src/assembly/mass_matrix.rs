@@ -139,49 +139,47 @@ pub fn assemble<
         let mut local_matrix =
             rlst_dynamic_array2!(T, [test_table.shape()[2], trial_table.shape()[2]]);
 
-        for cell in test_space.grid().cell_iter() {
-            if cell.entity_type() == *ct {
-                let test_dofs = test_space.cell_dofs(cell.local_index());
-                let trial_dofs = trial_space.cell_dofs(cell.local_index());
-                gmap.jacobians_dets_normals(
-                    cell.local_index(),
-                    &mut jacobians,
-                    &mut jdets,
-                    &mut normals,
-                );
-                for (test_i, _test_dof) in test_dofs.iter().enumerate() {
-                    for (trial_i, _trial_dof) in trial_dofs.iter().enumerate() {
-                        *local_matrix.get_mut([test_i, trial_i]).unwrap() = weights
-                            .iter()
-                            .enumerate()
-                            .map(|(i, w)| {
-                                (0..test_table.shape()[3])
-                                    .map(|j| {
-                                        T::from(jdets[i]).unwrap()
-                                            * *w
-                                            * *test_table.get([0, i, test_i, j]).unwrap()
-                                            * *trial_table.get([0, i, trial_i, j]).unwrap()
-                                    })
-                                    .sum()
-                            })
-                            .sum();
-                    }
+        for cell in test_space.grid().cell_iter_by_type(*ct) {
+            let test_dofs = test_space.cell_dofs(cell.local_index());
+            let trial_dofs = trial_space.cell_dofs(cell.local_index());
+            gmap.jacobians_dets_normals(
+                cell.local_index(),
+                &mut jacobians,
+                &mut jdets,
+                &mut normals,
+            );
+            for (test_i, _test_dof) in test_dofs.iter().enumerate() {
+                for (trial_i, _trial_dof) in trial_dofs.iter().enumerate() {
+                    *local_matrix.get_mut([test_i, trial_i]).unwrap() = weights
+                        .iter()
+                        .enumerate()
+                        .map(|(i, w)| {
+                            (0..test_table.shape()[3])
+                                .map(|j| {
+                                    T::from(jdets[i]).unwrap()
+                                        * *w
+                                        * *test_table.get([0, i, test_i, j]).unwrap()
+                                        * *trial_table.get([0, i, trial_i, j]).unwrap()
+                                })
+                                .sum()
+                        })
+                        .sum();
                 }
-                for i in 0..local_matrix.shape()[1] {
-                    test_e.apply_dof_permutations_and_transformations(
-                        local_matrix.r_mut().slice(1, i).data_mut(),
-                        cell.topology().orientation(),
-                    );
-                }
-                trial_e.apply_dof_permutations_and_transformations(
-                    local_matrix.data_mut(),
+            }
+            for i in 0..local_matrix.shape()[1] {
+                test_e.apply_dof_permutations_and_transformations(
+                    local_matrix.r_mut().slice(1, i).data_mut(),
                     cell.topology().orientation(),
                 );
-                for (test_i, test_dof) in test_dofs.iter().enumerate() {
-                    for (trial_i, trial_dof) in trial_dofs.iter().enumerate() {
-                        *matrix.get_mut([*test_dof, *trial_dof]).unwrap() +=
-                            *local_matrix.get([test_i, trial_i]).unwrap();
-                    }
+            }
+            trial_e.apply_dof_permutations_and_transformations(
+                local_matrix.data_mut(),
+                cell.topology().orientation(),
+            );
+            for (test_i, test_dof) in test_dofs.iter().enumerate() {
+                for (trial_i, trial_dof) in trial_dofs.iter().enumerate() {
+                    *matrix.get_mut([*test_dof, *trial_dof]).unwrap() +=
+                        *local_matrix.get([test_i, trial_i]).unwrap();
                 }
             }
         }
