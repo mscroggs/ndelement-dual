@@ -17,7 +17,7 @@ use rlst::{
 use std::collections::HashMap;
 
 /// Compute coefficients for the barycentric representation of a space
-pub fn barycentric_representation_coefficients<
+pub fn coefficients<
     'a,
     TReal: RealScalar,
     T: RlstScalar<Real = TReal> + MatrixInverse,
@@ -225,14 +225,14 @@ mod test {
     use rlst::Shape;
 
     #[test]
-    fn test_barycentric_representation_lagrange_triangles() {
+    fn test_lagrange_triangles() {
         let grid = shapes::regular_sphere::<f64>(1);
         let rgrid = RefinedGrid::new(&grid);
         let family = LagrangeElementFamily::<f64>::new(1, Continuity::Standard);
         let space = FunctionSpace::new(&grid, &family);
         let fine_space = FunctionSpace::new(rgrid.fine_grid(), &family);
 
-        let coefficients = barycentric_representation_coefficients(&rgrid, &space, &fine_space);
+        let coefficients = coefficients(&rgrid, &space, &fine_space);
         let bary_space = DualSpace::new(&rgrid, &fine_space, coefficients);
 
         let result = assemble_mass_matrix(&space, &space);
@@ -246,7 +246,7 @@ mod test {
     }
 
     #[test]
-    fn test_barycentric_representation_lagrange_triangles_mixed_degree() {
+    fn test_lagrange_triangles_mixed_degree() {
         let grid = shapes::regular_sphere::<f64>(1);
         let rgrid = RefinedGrid::new(&grid);
         let family = LagrangeElementFamily::<f64>::new(1, Continuity::Standard);
@@ -254,7 +254,7 @@ mod test {
         let space = FunctionSpace::new(&grid, &family);
         let fine_space = FunctionSpace::new(rgrid.fine_grid(), &fine_family);
 
-        let coefficients = barycentric_representation_coefficients(&rgrid, &space, &fine_space);
+        let coefficients = coefficients(&rgrid, &space, &fine_space);
         let bary_space = DualSpace::new(&rgrid, &fine_space, coefficients);
 
         let result = assemble_mass_matrix(&space, &space);
@@ -268,7 +268,7 @@ mod test {
     }
 
     #[test]
-    fn test_barycentric_representation_lagrange_triangles_mixed_continuity() {
+    fn test_lagrange_triangles_mixed_continuity() {
         let grid = shapes::regular_sphere::<f64>(1);
         let rgrid = RefinedGrid::new(&grid);
         let family = LagrangeElementFamily::<f64>::new(1, Continuity::Standard);
@@ -276,7 +276,7 @@ mod test {
         let space = FunctionSpace::new(&grid, &family);
         let fine_space = FunctionSpace::new(rgrid.fine_grid(), &fine_family);
 
-        let coefficients = barycentric_representation_coefficients(&rgrid, &space, &fine_space);
+        let coefficients = coefficients(&rgrid, &space, &fine_space);
         let bary_space = DualSpace::new(&rgrid, &fine_space, coefficients);
 
         let result = assemble_mass_matrix(&space, &space);
@@ -290,7 +290,7 @@ mod test {
     }
 
     #[test]
-    fn test_barycentric_representation_lagrange_quads() {
+    fn test_lagrange_quads() {
         let grid = shapes::screen_quadrilaterals::<f64>(1);
         let rgrid = RefinedGrid::new(&grid);
 
@@ -299,7 +299,7 @@ mod test {
         let space = FunctionSpace::new(&grid, &family);
         let fine_space = FunctionSpace::new(rgrid.fine_grid(), &fine_family);
 
-        let coefficients = barycentric_representation_coefficients(&rgrid, &space, &fine_space);
+        let coefficients = coefficients(&rgrid, &space, &fine_space);
 
         assert_relative_eq!(coefficients[0][&0], 1.0);
         assert_relative_eq!(coefficients[0][&24], 3.0 / 4.0);
