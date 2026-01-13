@@ -18,11 +18,12 @@ keywords = ["numerics"]
 categories = ["mathematics", "science"]
 
 [dependencies]
-ndelement = { git = "https://github.com/bempp/ndelement" }
-ndgrid = { git = "https://github.com/bempp/ndgrid" }
-rlst = { git = "https://github.com/linalg-rs/rlst.git" }
+ndelement = { git = "https://github.com/bempp/nd.git" }
+ndfunctionspace = { git = "https://github.com/bempp/nd.git" }
+ndgrid = { git = "https://github.com/bempp/nd.git" }
+rlst = { version = "0.5" }
 itertools = "0.14.*"
-quadraturerules = "0.7.8"
+quadraturerules = "0.9.0"
 
 [dev-dependencies]
 approx = "0.5"

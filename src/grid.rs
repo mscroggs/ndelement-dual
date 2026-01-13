@@ -3,13 +3,13 @@ use ndelement::{ciarlet::CiarletElement, map::IdentityMap, types::ReferenceCellT
 use ndgrid::{
     SingleElementGrid, SingleElementGridBuilder,
     traits::{Builder, Entity, Geometry, Grid, Point, Topology},
-    types::RealScalar,
+    types::Scalar,
 };
 
 /// A grid and its barcentric refinement
 pub struct RefinedGrid<
     'a,
-    T: RealScalar,
+    T: Scalar,
     G: Grid<T = T, EntityDescriptor = ReferenceCellType>,
     FineG: Grid<T = T, EntityDescriptor = ReferenceCellType>,
 > {
@@ -21,7 +21,7 @@ pub struct RefinedGrid<
 
 impl<
     'a,
-    T: RealScalar,
+    T: Scalar,
     G: Grid<T = T, EntityDescriptor = ReferenceCellType>,
     FineG: Grid<T = T, EntityDescriptor = ReferenceCellType>,
 > RefinedGrid<'a, T, G, FineG>
@@ -47,7 +47,8 @@ impl<
     }
 }
 
-impl<'a, T: RealScalar, G: Grid<T = T, EntityDescriptor = ReferenceCellType>>
+// TODO: why does it have to be real here?
+impl<'a, T: Scalar<Real = T>, G: Grid<T = T, EntityDescriptor = ReferenceCellType>>
     RefinedGrid<'a, T, G, SingleElementGrid<T, CiarletElement<T, IdentityMap>>>
 {
     /// Barycentrically refine a grid
@@ -74,14 +75,14 @@ impl<'a, T: RealScalar, G: Grid<T = T, EntityDescriptor = ReferenceCellType>>
 
         let mut i = 0;
         let mut p = vec![T::zero(); grid.geometry_dim()];
-        for v in grid.entity_iter(0) {
+        for v in grid.entity_iter(ReferenceCellType::Point) {
             v.geometry().points().next().unwrap().coords(&mut p);
             b.add_point(i, &p);
             i += 1;
         }
         let mut q = vec![T::zero(); grid.geometry_dim()];
         let mut r = vec![T::zero(); grid.geometry_dim()];
-        for e in grid.entity_iter(1) {
+        for e in grid.entity_iter(ReferenceCellType::Interval) {
             let g = e.geometry();
             let mut pts = g.points();
             pts.next().unwrap().coords(&mut p);
@@ -94,69 +95,72 @@ impl<'a, T: RealScalar, G: Grid<T = T, EntityDescriptor = ReferenceCellType>>
         }
 
         let mut s = vec![T::zero(); grid.geometry_dim()];
-        for (fi, f) in grid.entity_iter(2).enumerate() {
+        for (fi, f) in grid.entity_iter(ReferenceCellType::Triangle).enumerate() {
             let g = f.geometry();
             let mut pts = g.points();
-            match f.entity_type() {
-                ReferenceCellType::Triangle => {
-                    pts.next().unwrap().coords(&mut p);
-                    pts.next().unwrap().coords(&mut q);
-                    pts.next().unwrap().coords(&mut r);
-                    for (si, pi, qi, ri) in izip!(&mut s, &p, &q, &r) {
-                        *si = (*pi + *qi + *ri) / T::from(3).unwrap();
-                    }
-                }
-                ReferenceCellType::Quadrilateral => {
-                    pts.next().unwrap().coords(&mut p);
-                    pts.next();
-                    pts.next();
-                    pts.next().unwrap().coords(&mut q);
-                    for (si, pi, qi) in izip!(&mut s, &p, &q) {
-                        *si = (*pi + *qi) / T::from(2).unwrap();
-                    }
-                }
-                _ => {
-                    panic!("Unsupported cell type: {:?}", f.entity_type());
-                }
+            pts.next().unwrap().coords(&mut p);
+            pts.next().unwrap().coords(&mut q);
+            pts.next().unwrap().coords(&mut r);
+            for (si, pi, qi, ri) in izip!(&mut s, &p, &q, &r) {
+                *si = (*pi + *qi + *ri) / T::from(3).unwrap();
             }
             b.add_point(i, &s);
 
             let t = f.topology();
-            let vertices = t.sub_entity_iter(0).collect::<Vec<_>>();
-            let edges = t.sub_entity_iter(1).collect::<Vec<_>>();
-
-            match f.entity_type() {
-                ReferenceCellType::Triangle => {
-                    b.add_cell(6 * fi, &[vertices[0], nv + edges[2], i]);
-                    b.add_cell(6 * fi + 1, &[nv + edges[2], vertices[1], i]);
-                    b.add_cell(6 * fi + 2, &[vertices[1], nv + edges[0], i]);
-                    b.add_cell(6 * fi + 3, &[nv + edges[0], vertices[2], i]);
-                    b.add_cell(6 * fi + 4, &[vertices[2], nv + edges[1], i]);
-                    b.add_cell(6 * fi + 5, &[nv + edges[1], vertices[0], i]);
-                    child_map[f.local_index()] = (0..6).map(|i| 6 * fi + i).collect::<Vec<_>>();
-                    for i in 0..6 {
-                        parent_map.push((f.local_index(), i));
-                    }
-                }
-                ReferenceCellType::Quadrilateral => {
-                    b.add_cell(8 * fi, &[vertices[0], nv + edges[0], i]);
-                    b.add_cell(8 * fi + 1, &[nv + edges[0], vertices[1], i]);
-                    b.add_cell(8 * fi + 2, &[vertices[1], nv + edges[2], i]);
-                    b.add_cell(8 * fi + 3, &[nv + edges[2], vertices[3], i]);
-                    b.add_cell(8 * fi + 4, &[vertices[3], nv + edges[3], i]);
-                    b.add_cell(8 * fi + 5, &[nv + edges[3], vertices[2], i]);
-                    b.add_cell(8 * fi + 6, &[vertices[2], nv + edges[1], i]);
-                    b.add_cell(8 * fi + 7, &[nv + edges[1], vertices[0], i]);
-                    child_map[f.local_index()] = (0..8).map(|i| 8 * fi + i).collect::<Vec<_>>();
-                    for i in 0..8 {
-                        parent_map.push((f.local_index(), i));
-                    }
-                }
-                _ => {
-                    panic!("Unsupported cell type: {:?}", f.entity_type());
-                }
+            let vertices = t
+                .sub_entity_iter(ReferenceCellType::Point)
+                .collect::<Vec<_>>();
+            let edges = t
+                .sub_entity_iter(ReferenceCellType::Interval)
+                .collect::<Vec<_>>();
+            b.add_cell(6 * fi, &[vertices[0], nv + edges[2], i]);
+            b.add_cell(6 * fi + 1, &[nv + edges[2], vertices[1], i]);
+            b.add_cell(6 * fi + 2, &[vertices[1], nv + edges[0], i]);
+            b.add_cell(6 * fi + 3, &[nv + edges[0], vertices[2], i]);
+            b.add_cell(6 * fi + 4, &[vertices[2], nv + edges[1], i]);
+            b.add_cell(6 * fi + 5, &[nv + edges[1], vertices[0], i]);
+            child_map[f.local_index()] = (0..6).map(|i| 6 * fi + i).collect::<Vec<_>>();
+            for i in 0..6 {
+                parent_map.push((f.local_index(), i));
             }
+            i += 1;
+        }
 
+        for (fi, f) in grid
+            .entity_iter(ReferenceCellType::Quadrilateral)
+            .enumerate()
+        {
+            let g = f.geometry();
+            let mut pts = g.points();
+            pts.next().unwrap().coords(&mut p);
+            pts.next();
+            pts.next();
+            pts.next().unwrap().coords(&mut q);
+            for (si, pi, qi) in izip!(&mut s, &p, &q) {
+                *si = (*pi + *qi) / T::from(2).unwrap();
+            }
+            b.add_point(i, &s);
+
+            let t = f.topology();
+            let vertices = t
+                .sub_entity_iter(ReferenceCellType::Point)
+                .collect::<Vec<_>>();
+            let edges = t
+                .sub_entity_iter(ReferenceCellType::Interval)
+                .collect::<Vec<_>>();
+
+            b.add_cell(8 * fi, &[vertices[0], nv + edges[0], i]);
+            b.add_cell(8 * fi + 1, &[nv + edges[0], vertices[1], i]);
+            b.add_cell(8 * fi + 2, &[vertices[1], nv + edges[2], i]);
+            b.add_cell(8 * fi + 3, &[nv + edges[2], vertices[3], i]);
+            b.add_cell(8 * fi + 4, &[vertices[3], nv + edges[3], i]);
+            b.add_cell(8 * fi + 5, &[nv + edges[3], vertices[2], i]);
+            b.add_cell(8 * fi + 6, &[vertices[2], nv + edges[1], i]);
+            b.add_cell(8 * fi + 7, &[nv + edges[1], vertices[0], i]);
+            child_map[f.local_index()] = (0..8).map(|i| 8 * fi + i).collect::<Vec<_>>();
+            for i in 0..8 {
+                parent_map.push((f.local_index(), i));
+            }
             i += 1;
         }
 
