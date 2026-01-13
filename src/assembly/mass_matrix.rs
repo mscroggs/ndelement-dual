@@ -16,24 +16,24 @@ use rlst::{DynArray, rlst_dynamic_array};
 /// Assemble a mass matrix using dual spaces
 pub fn assemble_dual<
     'a,
-    TReal: Scalar,
-    T: Scalar<Real = TReal>,
-    G: Grid<T = TReal, EntityDescriptor = ReferenceCellType>,
-    FineG: Grid<T = TReal, EntityDescriptor = ReferenceCellType>,
+    TGeo: Scalar,
+    T: Scalar,
+    G: Grid<T = TGeo, EntityDescriptor = ReferenceCellType>,
+    FineG: Grid<T = TGeo, EntityDescriptor = ReferenceCellType>,
     M: Map,
     TestF: FunctionSpace<
             Grid = FineG,
             EntityDescriptor = ReferenceCellType,
-            FiniteElement = CiarletElement<T, M>,
+            FiniteElement = CiarletElement<T, M, TGeo>,
         >,
     TrialF: FunctionSpace<
             Grid = FineG,
             EntityDescriptor = ReferenceCellType,
-            FiniteElement = CiarletElement<T, M>,
+            FiniteElement = CiarletElement<T, M, TGeo>,
         >,
 >(
-    test_space: &DualSpace<'a, TReal, T, G, FineG, TestF>,
-    trial_space: &DualSpace<'a, TReal, T, G, FineG, TrialF>,
+    test_space: &DualSpace<'a, TGeo, T, G, FineG, TestF>,
+    trial_space: &DualSpace<'a, TGeo, T, G, FineG, TrialF>,
 ) -> DynArray<T, 2> {
     let fine_mat = assemble(test_space.fine_space(), trial_space.fine_space());
 
@@ -60,8 +60,9 @@ pub fn assemble_dual<
 
 /// Assemble a mass matrix
 pub fn assemble<
+    TGeo: Scalar,
     T: Scalar,
-    G: Grid<T = T::Real, EntityDescriptor = ReferenceCellType>,
+    G: Grid<T = TGeo, EntityDescriptor = ReferenceCellType>,
     TestF: MappedFiniteElement<T = T, CellType = ReferenceCellType>,
     TrialF: MappedFiniteElement<T = T, CellType = ReferenceCellType>,
 >(
@@ -121,10 +122,10 @@ pub fn assemble<
                     test_e.lagrange_superdegree() + trial_e.lagrange_superdegree(),
                 )
                 .unwrap();
-                let mut pts = rlst_dynamic_array!(T::Real, [2, w.len()]);
+                let mut pts = rlst_dynamic_array!(TGeo, [2, w.len()]);
                 for i in 0..w.len() {
                     for j in 0..2 {
-                        *pts.get_mut([j, i]).unwrap() = T::from(p[3 * i + j]).unwrap().re();
+                        *pts.get_mut([j, i]).unwrap() = TGeo::from(p[3 * i + j]).unwrap();
                     }
                 }
                 (
@@ -142,15 +143,15 @@ pub fn assemble<
                         + trial_e.lagrange_superdegree().div_ceil(2),
                 )
                 .unwrap();
-                let mut pts = rlst_dynamic_array!(T::Real, [2, w.len() * w.len()]);
+                let mut pts = rlst_dynamic_array!(TGeo, [2, w.len() * w.len()]);
                 let mut wts = vec![T::zero(); w.len() * w.len()];
                 for (i, wi) in w.iter().enumerate() {
                     for (j, wj) in w.iter().enumerate() {
                         wts[w.len() * i + j] = T::from(wi * wj).unwrap();
                         *pts.get_mut([0, w.len() * i + j]).unwrap() =
-                            T::from(p[2 * i + 1]).unwrap().re();
+                            TGeo::from(p[2 * i + 1]).unwrap();
                         *pts.get_mut([1, w.len() * i + j]).unwrap() =
-                            T::from(p[2 * j + 1]).unwrap().re();
+                            TGeo::from(p[2 * j + 1]).unwrap();
                     }
                 }
                 (pts, wts)
@@ -174,11 +175,11 @@ pub fn assemble<
 
         let mut jacobians =
             vec![
-                T::zero().re();
+                TGeo::zero();
                 test_space.grid().geometry_dim() * test_space.grid().topology_dim() * npts
             ];
-        let mut jdets = vec![T::zero().re(); npts];
-        let mut normals = vec![T::zero().re(); test_space.grid().geometry_dim() * npts];
+        let mut jdets = vec![TGeo::zero(); npts];
+        let mut normals = vec![TGeo::zero(); test_space.grid().geometry_dim() * npts];
 
         let mut local_matrix =
             rlst_dynamic_array!(T, [test_table.shape()[2], trial_table.shape()[2]]);
