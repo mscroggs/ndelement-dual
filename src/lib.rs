@@ -6,7 +6,6 @@ mod assembly;
 mod dual;
 mod grid;
 
-//pub use assembly::{FunctionSpace, assemble_mass_matrix, assemble_mass_matrix_dual};
-pub use assembly::assemble_mass_matrix;
-//pub use dual::{DualSpace, barycentric_representation_coefficients};
+pub use assembly::{assemble_mass_matrix, assemble_mass_matrix_dual};
+pub use dual::{DualSpace, barycentric_representation_coefficients};
 pub use grid::RefinedGrid;

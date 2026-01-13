@@ -26,7 +26,7 @@ pub struct DualSpace<
     T: Scalar,
     G: Grid<T = TGrid, EntityDescriptor = ReferenceCellType>,
     FineG: Grid<T = TGrid, EntityDescriptor = ReferenceCellType>,
-    Space: FunctionSpace<EntityDescriptor=ReferenceCellType, Grid=SingleElementGrid<TGrid, CiarletElement<TGrid, IdentityMap>>>,
+    Space: FunctionSpace<EntityDescriptor=ReferenceCellType, Grid=FineG>,
 > {
     grid: &'a RefinedGrid<'a, TGrid, G, FineG>,
     fine_space: &'a Space,
@@ -39,7 +39,7 @@ impl<
     T: Scalar,
     G: Grid<T = TGrid, EntityDescriptor = ReferenceCellType>,
     FineG: Grid<T = TGrid, EntityDescriptor = ReferenceCellType>,
-    Space: FunctionSpace<EntityDescriptor=ReferenceCellType, Grid=SingleElementGrid<TGrid, CiarletElement<TGrid, IdentityMap>>>,
+    Space: FunctionSpace<EntityDescriptor=ReferenceCellType, Grid=FineG>,
 > DualSpace<'a, TGrid, T, G, FineG, Space>
 {
     /// Create new
@@ -280,10 +280,8 @@ pub fn barycentric_representation_coefficients<
 
 #[cfg(test)]
 mod test {
-/*
     use super::*;
-    use crate::assemble_mass_matrix;
-    // use crate::{assemble_mass_matrix, assemble_mass_matrix_dual};
+    use crate::{assemble_mass_matrix, assemble_mass_matrix_dual};
     use approx::*;
     use ndelement::{ciarlet::LagrangeElementFamily, types::Continuity};
     use ndgrid::shapes;
@@ -445,5 +443,4 @@ mod test {
             }
         }
     }
-*/
 }

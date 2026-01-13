@@ -1,7 +1,9 @@
 //! Max matrix assembly
+use crate::DualSpace;
 use ndelement::{
-    traits::{ElementFamily, FiniteElement, MappedFiniteElement},
+    traits::{ElementFamily, FiniteElement, MappedFiniteElement, Map},
     types::ReferenceCellType,
+    ciarlet::CiarletElement,
 };
 use ndgrid::{
     traits::{Entity, GeometryMap, Grid, Topology, Geometry},
@@ -14,16 +16,16 @@ use rlst::{
     rlst_dynamic_array, DynArray
 };
 
-/*
 /// Assemble a mass matrix using dual spaces
 pub fn assemble_dual<
     'a,
     TReal: Scalar,
-    T: Scalar,
+    T: Scalar<Real=TReal>,
     G: Grid<T = TReal, EntityDescriptor = ReferenceCellType>,
     FineG: Grid<T = TReal, EntityDescriptor = ReferenceCellType>,
-    TestF: ElementFamily<T = T, CellType = ReferenceCellType>,
-    TrialF: ElementFamily<T = T, CellType = ReferenceCellType>,
+    M: Map,
+    TestF: FunctionSpace<Grid=FineG, EntityDescriptor = ReferenceCellType, FiniteElement=CiarletElement<T, M>>,
+    TrialF: FunctionSpace<Grid=FineG, EntityDescriptor = ReferenceCellType, FiniteElement=CiarletElement<T, M>>,
 >(
     test_space: &DualSpace<'a, TReal, T, G, FineG, TestF>,
     trial_space: &DualSpace<'a, TReal, T, G, FineG, TrialF>,
@@ -50,7 +52,6 @@ pub fn assemble_dual<
     }
     matrix
 }
-*/
 
 /// Assemble a mass matrix
 pub fn assemble<
