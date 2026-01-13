@@ -1,6 +1,8 @@
 //! Dual spaces
+mod bc;
 mod representation;
-pub use representation::barycentric_representation_coefficients;
+pub use bc::coefficients as bc_coefficients;
+pub use representation::coefficients as barycentric_representation_coefficients;
 
 use crate::RefinedGrid;
 use ndelement::types::ReferenceCellType;

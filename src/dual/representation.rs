@@ -15,7 +15,7 @@ use rlst::{DynArray, RlstScalar};
 use std::collections::HashMap;
 
 /// Compute coefficients for the barycentric representation of a space
-pub fn barycentric_representation_coefficients<
+pub fn coefficients<
     'a,
     TGeo: Scalar,
     T: Scalar,
@@ -246,7 +246,7 @@ mod test {
         let space = FunctionSpaceImpl::new(&grid, &family);
         let fine_space = FunctionSpaceImpl::new(rgrid.fine_grid(), &family);
 
-        let coefficients = barycentric_representation_coefficients(&rgrid, &space, &fine_space);
+        let coefficients = coefficients(&rgrid, &space, &fine_space);
         let bary_space = DualSpace::new(&rgrid, &fine_space, coefficients);
 
         let result = assemble_mass_matrix(&space, &space);
@@ -268,7 +268,7 @@ mod test {
         let space = FunctionSpaceImpl::new(&grid, &family);
         let fine_space = FunctionSpaceImpl::new(rgrid.fine_grid(), &fine_family);
 
-        let coefficients = barycentric_representation_coefficients(&rgrid, &space, &fine_space);
+        let coefficients = coefficients(&rgrid, &space, &fine_space);
         let bary_space = DualSpace::new(&rgrid, &fine_space, coefficients);
 
         let result = assemble_mass_matrix(&space, &space);
@@ -290,7 +290,7 @@ mod test {
         let space = FunctionSpaceImpl::new(&grid, &family);
         let fine_space = FunctionSpaceImpl::new(rgrid.fine_grid(), &fine_family);
 
-        let coefficients = barycentric_representation_coefficients(&rgrid, &space, &fine_space);
+        let coefficients = coefficients(&rgrid, &space, &fine_space);
         let bary_space = DualSpace::new(&rgrid, &fine_space, coefficients);
 
         let result = assemble_mass_matrix(&space, &space);
@@ -313,7 +313,7 @@ mod test {
         let space = FunctionSpaceImpl::new(&grid, &family);
         let fine_space = FunctionSpaceImpl::new(rgrid.fine_grid(), &fine_family);
 
-        let coefficients = barycentric_representation_coefficients(&rgrid, &space, &fine_space);
+        let coefficients = coefficients(&rgrid, &space, &fine_space);
 
         assert_relative_eq!(coefficients[0][&0], 1.0);
         assert_relative_eq!(coefficients[0][&24], 3.0 / 4.0);
