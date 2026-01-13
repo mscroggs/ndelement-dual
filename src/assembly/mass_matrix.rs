@@ -1,24 +1,25 @@
 //! Max matrix assembly
-use crate::{DualSpace, FunctionSpace};
 use ndelement::{
-    traits::{ElementFamily, FiniteElement},
+    traits::{ElementFamily, FiniteElement, MappedFiniteElement},
     types::ReferenceCellType,
 };
 use ndgrid::{
-    traits::{Entity, GeometryMap, Grid, Topology},
-    types::{Array2D, RealScalar},
+    traits::{Entity, GeometryMap, Grid, Topology, Geometry},
+    types::Scalar,
 };
+use ndfunctionspace::traits::FunctionSpace;
 use quadraturerules::{Domain, QuadratureRule, single_integral_quadrature};
 use rlst::{
-    RandomAccessByRef, RandomAccessMut, RawAccess, RawAccessMut, RlstScalar, Shape,
-    rlst_dynamic_array2, rlst_dynamic_array4,
+    RandomAccessByRef, RandomAccessMut, RawAccess, RawAccessMut, Shape,
+    rlst_dynamic_array, DynArray
 };
 
+/*
 /// Assemble a mass matrix using dual spaces
 pub fn assemble_dual<
     'a,
-    TReal: RealScalar,
-    T: RlstScalar<Real = TReal>,
+    TReal: Scalar,
+    T: Scalar,
     G: Grid<T = TReal, EntityDescriptor = ReferenceCellType>,
     FineG: Grid<T = TReal, EntityDescriptor = ReferenceCellType>,
     TestF: ElementFamily<T = T, CellType = ReferenceCellType>,
@@ -26,10 +27,10 @@ pub fn assemble_dual<
 >(
     test_space: &DualSpace<'a, TReal, T, G, FineG, TestF>,
     trial_space: &DualSpace<'a, TReal, T, G, FineG, TrialF>,
-) -> Array2D<T> {
+) -> DynArray<T, 2> {
     let fine_mat = assemble(test_space.fine_space(), trial_space.fine_space());
 
-    let mut matrix = rlst_dynamic_array2!(T, [test_space.dim(), trial_space.dim()]);
+    let mut matrix = rlst_dynamic_array!(T, [test_space.dim(), trial_space.dim()]);
 
     for (test_i, test_coeffs) in test_space.coefficients().iter().enumerate() {
         for (trial_i, trial_coeffs) in trial_space.coefficients().iter().enumerate() {
@@ -49,37 +50,44 @@ pub fn assemble_dual<
     }
     matrix
 }
+*/
 
 /// Assemble a mass matrix
 pub fn assemble<
     'a,
-    T: RlstScalar,
+    T: Scalar,
     G: Grid<T = T::Real, EntityDescriptor = ReferenceCellType>,
-    TestF: ElementFamily<T = T, CellType = ReferenceCellType>,
-    TrialF: ElementFamily<T = T, CellType = ReferenceCellType>,
+    TestF: MappedFiniteElement<T = T, CellType = ReferenceCellType>,
+    TrialF: MappedFiniteElement<T = T, CellType = ReferenceCellType>,
 >(
-    test_space: &FunctionSpace<'a, G, TestF>,
-    trial_space: &FunctionSpace<'a, G, TrialF>,
-) -> Array2D<T> {
+    test_space: &impl FunctionSpace<Grid=G, FiniteElement=TestF, EntityDescriptor=ReferenceCellType>,
+    trial_space: &impl FunctionSpace<Grid=G, FiniteElement=TrialF, EntityDescriptor=ReferenceCellType>,
+) -> DynArray<T, 2> {
     assert_eq!(
         test_space.grid() as *const G,
         trial_space.grid() as *const G
     );
 
-    let mut matrix = rlst_dynamic_array2!(T, [test_space.dim(), trial_space.dim()]);
+    let mut matrix = rlst_dynamic_array!(T, [test_space.local_size(), trial_space.local_size()]);
 
-    for ct in test_space.grid().cell_types() {
-        let test_e = test_space.family().element(*ct);
-        let trial_e = trial_space.family().element(*ct);
+    let geometry_degree = test_space.grid().entity_iter(test_space.grid().entity_types(test_space.grid().topology_dim())[0]).next().unwrap().geometry().degree();
+
+    for ct in test_space.grid().entity_types(test_space.grid().topology_dim()) {
+        let test_es = test_space.elements().iter().filter(|e| e.cell_type() == *ct).collect::<Vec<_>>();
+        assert_eq!(test_es.len(), 1);
+        let test_e = test_es[0];
+        let trial_es = trial_space.elements().iter().filter(|e| e.cell_type() == *ct).collect::<Vec<_>>();
+        assert_eq!(trial_es.len(), 1);
+        let trial_e = trial_es[0];
         let (points, weights) = match ct {
             ReferenceCellType::Triangle => {
                 let (p, w) = single_integral_quadrature(
                     QuadratureRule::XiaoGimbutas,
                     Domain::Triangle,
-                    test_e.embedded_superdegree() + trial_e.embedded_superdegree(),
+                    test_e.lagrange_superdegree() + trial_e.lagrange_superdegree(),
                 )
                 .unwrap();
-                let mut pts = rlst_dynamic_array2!(T::Real, [2, w.len()]);
+                let mut pts = rlst_dynamic_array!(T::Real, [2, w.len()]);
                 for i in 0..w.len() {
                     for j in 0..2 {
                         *pts.get_mut([j, i]).unwrap() = T::from(p[3 * i + j]).unwrap().re();
@@ -96,11 +104,11 @@ pub fn assemble<
                 let (p, w) = single_integral_quadrature(
                     QuadratureRule::GaussLegendre,
                     Domain::Interval,
-                    test_e.embedded_superdegree().div_ceil(2)
-                        + trial_e.embedded_superdegree().div_ceil(2),
+                    test_e.lagrange_superdegree().div_ceil(2)
+                        + trial_e.lagrange_superdegree().div_ceil(2),
                 )
                 .unwrap();
-                let mut pts = rlst_dynamic_array2!(T::Real, [2, w.len() * w.len()]);
+                let mut pts = rlst_dynamic_array!(T::Real, [2, w.len() * w.len()]);
                 let mut wts = vec![T::zero(); w.len() * w.len()];
                 for (i, wi) in w.iter().enumerate() {
                     for (j, wj) in w.iter().enumerate() {
@@ -120,13 +128,13 @@ pub fn assemble<
 
         let npts = weights.len();
 
-        let mut test_table = rlst_dynamic_array4!(T, test_e.tabulate_array_shape(0, npts));
+        let mut test_table = DynArray::<T, 4>::from_shape(test_e.tabulate_array_shape(0, npts));
         test_e.tabulate(&points, 0, &mut test_table);
 
-        let mut trial_table = rlst_dynamic_array4!(T, trial_e.tabulate_array_shape(0, npts));
+        let mut trial_table = DynArray::<T, 4>::from_shape(trial_e.tabulate_array_shape(0, npts));
         trial_e.tabulate(&points, 0, &mut trial_table);
 
-        let gmap = test_space.grid().geometry_map(*ct, points.data());
+        let gmap = test_space.grid().geometry_map(*ct, geometry_degree, points.data().unwrap());
 
         let mut jacobians =
             vec![
@@ -137,11 +145,11 @@ pub fn assemble<
         let mut normals = vec![T::zero().re(); test_space.grid().geometry_dim() * npts];
 
         let mut local_matrix =
-            rlst_dynamic_array2!(T, [test_table.shape()[2], trial_table.shape()[2]]);
+            rlst_dynamic_array!(T, [test_table.shape()[2], trial_table.shape()[2]]);
 
-        for cell in test_space.grid().cell_iter_by_type(*ct) {
-            let test_dofs = test_space.cell_dofs(cell.local_index());
-            let trial_dofs = trial_space.cell_dofs(cell.local_index());
+        for cell in test_space.grid().entity_iter(*ct) {
+            let test_dofs = test_space.entity_closure_dofs(*ct, cell.local_index()).unwrap();
+            let trial_dofs = trial_space.entity_closure_dofs(*ct, cell.local_index()).unwrap();
             gmap.jacobians_dets_normals(
                 cell.local_index(),
                 &mut jacobians,
@@ -168,12 +176,12 @@ pub fn assemble<
             }
             for i in 0..local_matrix.shape()[1] {
                 test_e.apply_dof_permutations_and_transformations(
-                    local_matrix.r_mut().slice(1, i).data_mut(),
+                    local_matrix.r_mut().slice::<1>(1, i).data_mut().unwrap(),
                     cell.topology().orientation(),
                 );
             }
             trial_e.apply_dof_permutations_and_transformations(
-                local_matrix.data_mut(),
+                local_matrix.data_mut().unwrap(),
                 cell.topology().orientation(),
             );
             for (test_i, test_dof) in test_dofs.iter().enumerate() {
@@ -197,6 +205,7 @@ mod test {
         },
         types::Continuity,
     };
+    use ndfunctionspace::FunctionSpaceImpl;
     use ndgrid::{
         SingleElementGridBuilder, shapes,
         traits::{Builder, Geometry, Point},
@@ -207,8 +216,15 @@ mod test {
     fn test_lagrange_assembly() {
         let grid = shapes::regular_sphere::<f64>(0);
         let family = LagrangeElementFamily::<f64>::new(1, Continuity::Standard);
-        let space = FunctionSpace::new(&grid, &family);
+        let space = FunctionSpaceImpl::new(&grid, &family);
         let result = assemble(&space, &space);
+
+        for i in 0..6 {
+            for j in 0..6 {
+                print!("{} ", result[[i, j]]);
+            }
+            println!();
+        }
 
         for i in 0..6 {
             assert_relative_eq!(result[[i, i]], 0.5773502691896255, epsilon = 1e-10);
@@ -224,9 +240,9 @@ mod test {
 
     #[test]
     fn test_lagrange_quadrilateral() {
-        let grid = shapes::screen_quadrilaterals::<f64>(1);
+        let grid = shapes::screen::<f64>(1, ReferenceCellType::Quadrilateral);
         let family = LagrangeElementFamily::<f64>::new(1, Continuity::Standard);
-        let space = FunctionSpace::new(&grid, &family);
+        let space = FunctionSpaceImpl::new(&grid, &family);
         let result = assemble(&space, &space);
 
         for i in 0..4 {
@@ -254,8 +270,8 @@ mod test {
         let grid = shapes::regular_sphere::<f64>(0);
         let rt = RaviartThomasElementFamily::<f64>::new(1, Continuity::Standard);
         let nc = NedelecFirstKindElementFamily::<f64>::new(1, Continuity::Standard);
-        let rt_space = FunctionSpace::new(&grid, &rt);
-        let nc_space = FunctionSpace::new(&grid, &nc);
+        let rt_space = FunctionSpaceImpl::new(&grid, &rt);
+        let nc_space = FunctionSpaceImpl::new(&grid, &nc);
         let result = assemble(&rt_space, &nc_space);
 
         for i in 0..6 {
@@ -282,7 +298,7 @@ mod test {
                 (ReferenceCellType::Triangle, 1),
             );
             let points = grid1
-                .entity_iter(0)
+                .entity_iter(ReferenceCellType::Point)
                 .map(|v| {
                     let mut p = vec![0.0; 3];
                     v.geometry().points().next().unwrap().coords(&mut p);
@@ -296,7 +312,7 @@ mod test {
                 b.add_point(i, &points[*j]);
                 index_map[*j] = i;
             }
-            for (i, cell) in grid1.cell_iter().enumerate() {
+            for (i, cell) in grid1.entity_iter(ReferenceCellType::Triangle).enumerate() {
                 b.add_cell(
                     i,
                     &cell
@@ -312,12 +328,12 @@ mod test {
         let rt = RaviartThomasElementFamily::<f64>::new(1, Continuity::Standard);
         let nc = NedelecFirstKindElementFamily::<f64>::new(1, Continuity::Standard);
 
-        let rt_space = FunctionSpace::new(&grid1, &rt);
-        let nc_space = FunctionSpace::new(&grid1, &nc);
+        let rt_space = FunctionSpaceImpl::new(&grid1, &rt);
+        let nc_space = FunctionSpaceImpl::new(&grid1, &nc);
         let result1 = assemble(&rt_space, &nc_space);
 
-        let rt_space = FunctionSpace::new(&grid2, &rt);
-        let nc_space = FunctionSpace::new(&grid2, &nc);
+        let rt_space = FunctionSpaceImpl::new(&grid2, &rt);
+        let nc_space = FunctionSpaceImpl::new(&grid2, &nc);
         let result2 = assemble(&rt_space, &nc_space);
 
         for i in 0..result1.shape()[0] {
