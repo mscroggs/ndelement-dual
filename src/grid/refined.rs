@@ -48,9 +48,8 @@ impl<
     }
 }
 
-// TODO: why does it have to be real here?
-impl<'a, T: Scalar<Real = T>, G: Grid<T = T, EntityDescriptor = ReferenceCellType>>
-    RefinedGrid<'a, T, G, SingleElementGrid<T, CiarletElement<T, IdentityMap>>>
+impl<'a, T: Scalar, G: Grid<T = T, EntityDescriptor = ReferenceCellType>>
+    RefinedGrid<'a, T, G, SingleElementGrid<T, CiarletElement<T, IdentityMap, T>>>
 {
     /// Barycentrically refine a grid
     pub fn new(grid: &'a G) -> Self {

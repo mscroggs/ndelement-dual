@@ -11,28 +11,28 @@ use ndgrid::{
     traits::{Entity, Grid},
     types::Scalar,
 };
-use rlst::DynArray;
+use rlst::{DynArray, RlstScalar};
 use std::collections::HashMap;
 
 /// Compute coefficients for the barycentric representation of a space
 pub fn barycentric_representation_coefficients<
     'a,
-    TGrid: Scalar,
-    T: Scalar<Real = TGrid>,
-    G: Grid<T = TGrid, EntityDescriptor = ReferenceCellType>,
-    FineG: Grid<T = TGrid, EntityDescriptor = ReferenceCellType>,
+    TGeo: Scalar,
+    T: Scalar,
+    G: Grid<T = TGeo, EntityDescriptor = ReferenceCellType>,
+    FineG: Grid<T = TGeo, EntityDescriptor = ReferenceCellType>,
     M: Map,
 >(
-    grid: &'a RefinedGrid<'a, TGrid, G, FineG>,
+    grid: &'a RefinedGrid<'a, TGeo, G, FineG>,
     coarse_space: &impl FunctionSpace<
         EntityDescriptor = ReferenceCellType,
         Grid = G,
-        FiniteElement = CiarletElement<T, M, TGrid>,
+        FiniteElement = CiarletElement<T, M, TGeo>,
     >,
     fine_space: &impl FunctionSpace<
         EntityDescriptor = ReferenceCellType,
         Grid = FineG,
-        FiniteElement = CiarletElement<T, M, TGrid>,
+        FiniteElement = CiarletElement<T, M, TGeo>,
     >,
 ) -> Vec<HashMap<usize, T>> {
     assert_eq!(
@@ -52,104 +52,104 @@ pub fn barycentric_representation_coefficients<
     for ct in grid.coarse_grid().cell_types() {
         let child_to_parent_maps = match ct {
             ReferenceCellType::Triangle => vec![
-                |x: &[TGrid]| {
+                |x: &[TGeo]| {
                     [
-                        x[0] / TGrid::from(2).unwrap() + x[1] / TGrid::from(3).unwrap(),
-                        x[1] / TGrid::from(3).unwrap(),
+                        x[0] / TGeo::from(2).unwrap() + x[1] / TGeo::from(3).unwrap(),
+                        x[1] / TGeo::from(3).unwrap(),
                     ]
                 },
-                |x: &[TGrid]| {
+                |x: &[TGeo]| {
                     [
-                        TGrid::from(0.5).unwrap() + x[0] / TGrid::from(2).unwrap()
-                            - x[1] / TGrid::from(6).unwrap(),
-                        x[1] / TGrid::from(3).unwrap(),
+                        TGeo::from(0.5).unwrap() + x[0] / TGeo::from(2).unwrap()
+                            - x[1] / TGeo::from(6).unwrap(),
+                        x[1] / TGeo::from(3).unwrap(),
                     ]
                 },
-                |x: &[TGrid]| {
+                |x: &[TGeo]| {
                     [
-                        TGrid::from(1.0).unwrap()
-                            - x[0] / TGrid::from(2).unwrap()
-                            - x[1] * TGrid::from(2).unwrap() / TGrid::from(3).unwrap(),
-                        x[0] / TGrid::from(2).unwrap() + x[1] / TGrid::from(3).unwrap(),
+                        TGeo::from(1.0).unwrap()
+                            - x[0] / TGeo::from(2).unwrap()
+                            - x[1] * TGeo::from(2).unwrap() / TGeo::from(3).unwrap(),
+                        x[0] / TGeo::from(2).unwrap() + x[1] / TGeo::from(3).unwrap(),
                     ]
                 },
-                |x: &[TGrid]| {
+                |x: &[TGeo]| {
                     [
-                        TGrid::from(0.5).unwrap()
-                            - x[0] / TGrid::from(2).unwrap()
-                            - x[1] / TGrid::from(6).unwrap(),
-                        TGrid::from(0.5).unwrap() + x[0] / TGrid::from(2).unwrap()
-                            - x[1] / TGrid::from(6).unwrap(),
+                        TGeo::from(0.5).unwrap()
+                            - x[0] / TGeo::from(2).unwrap()
+                            - x[1] / TGeo::from(6).unwrap(),
+                        TGeo::from(0.5).unwrap() + x[0] / TGeo::from(2).unwrap()
+                            - x[1] / TGeo::from(6).unwrap(),
                     ]
                 },
-                |x: &[TGrid]| {
+                |x: &[TGeo]| {
                     [
-                        x[1] / TGrid::from(3).unwrap(),
-                        TGrid::from(1.0).unwrap()
-                            - x[0] / TGrid::from(2).unwrap()
-                            - x[1] * TGrid::from(2).unwrap() / TGrid::from(3).unwrap(),
+                        x[1] / TGeo::from(3).unwrap(),
+                        TGeo::from(1.0).unwrap()
+                            - x[0] / TGeo::from(2).unwrap()
+                            - x[1] * TGeo::from(2).unwrap() / TGeo::from(3).unwrap(),
                     ]
                 },
-                |x: &[TGrid]| {
+                |x: &[TGeo]| {
                     [
-                        x[1] / TGrid::from(3).unwrap(),
-                        TGrid::from(0.5).unwrap()
-                            - x[0] / TGrid::from(2).unwrap()
-                            - x[1] / TGrid::from(6).unwrap(),
+                        x[1] / TGeo::from(3).unwrap(),
+                        TGeo::from(0.5).unwrap()
+                            - x[0] / TGeo::from(2).unwrap()
+                            - x[1] / TGeo::from(6).unwrap(),
                     ]
                 },
             ],
             ReferenceCellType::Quadrilateral => vec![
-                |x: &[TGrid]| {
+                |x: &[TGeo]| {
                     [
-                        x[0] / TGrid::from(2).unwrap() + x[1] / TGrid::from(2).unwrap(),
-                        x[1] / TGrid::from(2).unwrap(),
+                        x[0] / TGeo::from(2).unwrap() + x[1] / TGeo::from(2).unwrap(),
+                        x[1] / TGeo::from(2).unwrap(),
                     ]
                 },
-                |x: &[TGrid]| {
+                |x: &[TGeo]| {
                     [
-                        TGrid::from(0.5).unwrap() + x[0] / TGrid::from(2).unwrap(),
-                        x[1] / TGrid::from(2).unwrap(),
+                        TGeo::from(0.5).unwrap() + x[0] / TGeo::from(2).unwrap(),
+                        x[1] / TGeo::from(2).unwrap(),
                     ]
                 },
-                |x: &[TGrid]| {
+                |x: &[TGeo]| {
                     [
-                        TGrid::from(1.0).unwrap() - x[1] / TGrid::from(2).unwrap(),
-                        x[0] / TGrid::from(2).unwrap() + x[1] / TGrid::from(2).unwrap(),
+                        TGeo::from(1.0).unwrap() - x[1] / TGeo::from(2).unwrap(),
+                        x[0] / TGeo::from(2).unwrap() + x[1] / TGeo::from(2).unwrap(),
                     ]
                 },
-                |x: &[TGrid]| {
+                |x: &[TGeo]| {
                     [
-                        TGrid::from(1.0).unwrap() - x[1] / TGrid::from(2).unwrap(),
-                        TGrid::from(0.5).unwrap() + x[0] / TGrid::from(2).unwrap(),
+                        TGeo::from(1.0).unwrap() - x[1] / TGeo::from(2).unwrap(),
+                        TGeo::from(0.5).unwrap() + x[0] / TGeo::from(2).unwrap(),
                     ]
                 },
-                |x: &[TGrid]| {
+                |x: &[TGeo]| {
                     [
-                        TGrid::from(1.0).unwrap()
-                            - x[0] / TGrid::from(2).unwrap()
-                            - x[1] / TGrid::from(2).unwrap(),
-                        TGrid::from(1.0).unwrap() - x[1] / TGrid::from(2).unwrap(),
+                        TGeo::from(1.0).unwrap()
+                            - x[0] / TGeo::from(2).unwrap()
+                            - x[1] / TGeo::from(2).unwrap(),
+                        TGeo::from(1.0).unwrap() - x[1] / TGeo::from(2).unwrap(),
                     ]
                 },
-                |x: &[TGrid]| {
+                |x: &[TGeo]| {
                     [
-                        TGrid::from(0.5).unwrap() - x[0] / TGrid::from(2).unwrap(),
-                        TGrid::from(1.0).unwrap() - x[1] / TGrid::from(2).unwrap(),
+                        TGeo::from(0.5).unwrap() - x[0] / TGeo::from(2).unwrap(),
+                        TGeo::from(1.0).unwrap() - x[1] / TGeo::from(2).unwrap(),
                     ]
                 },
-                |x: &[TGrid]| {
+                |x: &[TGeo]| {
                     [
-                        x[1] / TGrid::from(2).unwrap(),
-                        TGrid::from(1.0).unwrap()
-                            - x[0] / TGrid::from(2).unwrap()
-                            - x[1] / TGrid::from(2).unwrap(),
+                        x[1] / TGeo::from(2).unwrap(),
+                        TGeo::from(1.0).unwrap()
+                            - x[0] / TGeo::from(2).unwrap()
+                            - x[1] / TGeo::from(2).unwrap(),
                     ]
                 },
-                |x: &[TGrid]| {
+                |x: &[TGeo]| {
                     [
-                        x[1] / TGrid::from(2).unwrap(),
-                        TGrid::from(0.5).unwrap() - x[0] / TGrid::from(2).unwrap(),
+                        x[1] / TGeo::from(2).unwrap(),
+                        TGeo::from(0.5).unwrap() - x[0] / TGeo::from(2).unwrap(),
                     ]
                 },
             ],
@@ -189,7 +189,7 @@ pub fn barycentric_representation_coefficients<
                                 .map(|i| fine_cell_dofs[*i])
                                 .collect::<Vec<_>>();
 
-                            let mut mapped_pts = DynArray::<T::Real, 2>::from_shape(pts.shape());
+                            let mut mapped_pts = DynArray::<TGeo, 2>::from_shape(pts.shape());
                             for i in 0..pts.shape()[1] {
                                 [
                                     *mapped_pts.get_mut([0, i]).unwrap(),
@@ -214,7 +214,7 @@ pub fn barycentric_representation_coefficients<
                                                 .sum()
                                         })
                                         .sum();
-                                    if value.abs().re() > TGrid::from(1e-10).unwrap().re() {
+                                    if value.abs().re() > T::from(1e-10).unwrap().re() {
                                         coefficients[*coarse_dof].insert(*fine_dof, value);
                                     }
                                 }
