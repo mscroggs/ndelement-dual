@@ -20,7 +20,10 @@ fn main() {
             "Number of cells:  {}",
             grid.entity_count(ReferenceCellType::Triangle)
         );
-        println!("Condition number: {}", svals[[0]] / svals[[svals.len() - 1]]);
+        println!(
+            "Condition number: {}",
+            svals[[0]] / svals[[svals.len() - 1]]
+        );
         println!();
     }
 }

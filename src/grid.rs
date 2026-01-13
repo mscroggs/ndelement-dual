@@ -3,7 +3,7 @@ use ndelement::{ciarlet::CiarletElement, map::IdentityMap, types::ReferenceCellT
 use ndgrid::{
     SingleElementGrid, SingleElementGridBuilder,
     traits::{Builder, Entity, Geometry, Grid, Point, Topology},
-    types::Scalar
+    types::Scalar,
 };
 
 /// A grid and its barcentric refinement
@@ -48,7 +48,7 @@ impl<
 }
 
 // TODO: why does it have to be real here?
-impl<'a, T: Scalar<Real=T>, G: Grid<T = T, EntityDescriptor = ReferenceCellType>>
+impl<'a, T: Scalar<Real = T>, G: Grid<T = T, EntityDescriptor = ReferenceCellType>>
     RefinedGrid<'a, T, G, SingleElementGrid<T, CiarletElement<T, IdentityMap>>>
 {
     /// Barycentrically refine a grid
@@ -107,8 +107,12 @@ impl<'a, T: Scalar<Real=T>, G: Grid<T = T, EntityDescriptor = ReferenceCellType>
             b.add_point(i, &s);
 
             let t = f.topology();
-            let vertices = t.sub_entity_iter(ReferenceCellType::Point).collect::<Vec<_>>();
-            let edges = t.sub_entity_iter(ReferenceCellType::Interval).collect::<Vec<_>>();
+            let vertices = t
+                .sub_entity_iter(ReferenceCellType::Point)
+                .collect::<Vec<_>>();
+            let edges = t
+                .sub_entity_iter(ReferenceCellType::Interval)
+                .collect::<Vec<_>>();
             b.add_cell(6 * fi, &[vertices[0], nv + edges[2], i]);
             b.add_cell(6 * fi + 1, &[nv + edges[2], vertices[1], i]);
             b.add_cell(6 * fi + 2, &[vertices[1], nv + edges[0], i]);
@@ -122,7 +126,10 @@ impl<'a, T: Scalar<Real=T>, G: Grid<T = T, EntityDescriptor = ReferenceCellType>
             i += 1;
         }
 
-        for (fi, f) in grid.entity_iter(ReferenceCellType::Quadrilateral).enumerate() {
+        for (fi, f) in grid
+            .entity_iter(ReferenceCellType::Quadrilateral)
+            .enumerate()
+        {
             let g = f.geometry();
             let mut pts = g.points();
             pts.next().unwrap().coords(&mut p);
@@ -135,8 +142,12 @@ impl<'a, T: Scalar<Real=T>, G: Grid<T = T, EntityDescriptor = ReferenceCellType>
             b.add_point(i, &s);
 
             let t = f.topology();
-            let vertices = t.sub_entity_iter(ReferenceCellType::Point).collect::<Vec<_>>();
-            let edges = t.sub_entity_iter(ReferenceCellType::Interval).collect::<Vec<_>>();
+            let vertices = t
+                .sub_entity_iter(ReferenceCellType::Point)
+                .collect::<Vec<_>>();
+            let edges = t
+                .sub_entity_iter(ReferenceCellType::Interval)
+                .collect::<Vec<_>>();
 
             b.add_cell(8 * fi, &[vertices[0], nv + edges[0], i]);
             b.add_cell(8 * fi + 1, &[nv + edges[0], vertices[1], i]);

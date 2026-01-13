@@ -3,20 +3,15 @@ use crate::RefinedGrid;
 use itertools::izip;
 use ndelement::{
     ciarlet::CiarletElement,
-    map::IdentityMap,
-    traits::{ElementFamily, FiniteElement, Map, MappedFiniteElement},
+    traits::{FiniteElement, Map},
     types::ReferenceCellType,
 };
-use ndfunctionspace::{FunctionSpaceImpl, traits::FunctionSpace};
+use ndfunctionspace::traits::FunctionSpace;
 use ndgrid::{
-    SingleElementGrid,
     traits::{Entity, Grid},
     types::Scalar,
 };
-use rlst::{
-    RandomAccessByRef, RandomAccessMut, RawAccess, Shape,
-    rlst_dynamic_array, DynArray,
-};
+use rlst::DynArray;
 use std::collections::HashMap;
 
 /// A dual space
@@ -26,7 +21,7 @@ pub struct DualSpace<
     T: Scalar,
     G: Grid<T = TGrid, EntityDescriptor = ReferenceCellType>,
     FineG: Grid<T = TGrid, EntityDescriptor = ReferenceCellType>,
-    Space: FunctionSpace<EntityDescriptor=ReferenceCellType, Grid=FineG>,
+    Space: FunctionSpace<EntityDescriptor = ReferenceCellType, Grid = FineG>,
 > {
     grid: &'a RefinedGrid<'a, TGrid, G, FineG>,
     fine_space: &'a Space,
@@ -39,7 +34,7 @@ impl<
     T: Scalar,
     G: Grid<T = TGrid, EntityDescriptor = ReferenceCellType>,
     FineG: Grid<T = TGrid, EntityDescriptor = ReferenceCellType>,
-    Space: FunctionSpace<EntityDescriptor=ReferenceCellType, Grid=FineG>,
+    Space: FunctionSpace<EntityDescriptor = ReferenceCellType, Grid = FineG>,
 > DualSpace<'a, TGrid, T, G, FineG, Space>
 {
     /// Create new
@@ -61,10 +56,7 @@ impl<
     }
 
     /// Fine space
-    pub fn fine_space(
-        &self,
-    ) -> &Space
-    {
+    pub fn fine_space(&self) -> &Space {
         self.fine_space
     }
 
@@ -83,14 +75,22 @@ impl<
 pub fn barycentric_representation_coefficients<
     'a,
     TGrid: Scalar,
-    T: Scalar<Real=TGrid>,
+    T: Scalar<Real = TGrid>,
     G: Grid<T = TGrid, EntityDescriptor = ReferenceCellType>,
     FineG: Grid<T = TGrid, EntityDescriptor = ReferenceCellType>,
-    M: Map
+    M: Map,
 >(
     grid: &'a RefinedGrid<'a, TGrid, G, FineG>,
-    coarse_space: &impl FunctionSpace<EntityDescriptor=ReferenceCellType, Grid=G, FiniteElement=CiarletElement<T, M, TGrid>>,
-    fine_space: &impl FunctionSpace<EntityDescriptor=ReferenceCellType, Grid=FineG, FiniteElement=CiarletElement<T, M, TGrid>>,
+    coarse_space: &impl FunctionSpace<
+        EntityDescriptor = ReferenceCellType,
+        Grid = G,
+        FiniteElement = CiarletElement<T, M, TGrid>,
+    >,
+    fine_space: &impl FunctionSpace<
+        EntityDescriptor = ReferenceCellType,
+        Grid = FineG,
+        FiniteElement = CiarletElement<T, M, TGrid>,
+    >,
 ) -> Vec<HashMap<usize, T>> {
     assert_eq!(
         grid.coarse_grid() as *const G,
@@ -215,14 +215,22 @@ pub fn barycentric_representation_coefficients<
             }
         };
 
-        let coarse_es = coarse_space.elements().iter().filter(|e| e.cell_type() == *ct).collect::<Vec<_>>();
+        let coarse_es = coarse_space
+            .elements()
+            .iter()
+            .filter(|e| e.cell_type() == *ct)
+            .collect::<Vec<_>>();
         assert_eq!(coarse_es.len(), 1);
         let coarse_e = coarse_es[0];
         for cell in grid.coarse_grid().entity_iter(*ct) {
-            let coarse_cell_dofs = coarse_space.entity_closure_dofs(*ct, cell.local_index()).unwrap();
+            let coarse_cell_dofs = coarse_space
+                .entity_closure_dofs(*ct, cell.local_index())
+                .unwrap();
             for (fine_cell, map) in izip!(grid.children(cell.local_index()), &child_to_parent_maps)
             {
-                let fine_cell_dofs = fine_space.entity_closure_dofs(fine_e.cell_type(), *fine_cell).unwrap();
+                let fine_cell_dofs = fine_space
+                    .entity_closure_dofs(fine_e.cell_type(), *fine_cell)
+                    .unwrap();
                 for (dim, (pts_list, wts_list)) in izip!(
                     fine_e.interpolation_points(),
                     fine_e.interpolation_weights()
@@ -246,7 +254,7 @@ pub fn barycentric_representation_coefficients<
                                 ] = map(pts.r().slice::<1>(1, i).data().unwrap());
                             }
                             let mut table = DynArray::<T, 4>::from_shape(
-                                coarse_e.tabulate_array_shape(0, pts.shape()[1])
+                                coarse_e.tabulate_array_shape(0, pts.shape()[1]),
                             );
                             coarse_e.tabulate(&mapped_pts, 0, &mut table);
                             for (coarse_dof_i, coarse_dof) in coarse_cell_dofs.iter().enumerate() {

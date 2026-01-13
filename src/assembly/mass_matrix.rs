@@ -1,31 +1,36 @@
 //! Max matrix assembly
 use crate::DualSpace;
 use ndelement::{
-    traits::{ElementFamily, FiniteElement, MappedFiniteElement, Map},
-    types::ReferenceCellType,
     ciarlet::CiarletElement,
-};
-use ndgrid::{
-    traits::{Entity, GeometryMap, Grid, Topology, Geometry},
-    types::Scalar,
+    traits::{Map, MappedFiniteElement},
+    types::ReferenceCellType,
 };
 use ndfunctionspace::traits::FunctionSpace;
-use quadraturerules::{Domain, QuadratureRule, single_integral_quadrature};
-use rlst::{
-    RandomAccessByRef, RandomAccessMut, RawAccess, RawAccessMut, Shape,
-    rlst_dynamic_array, DynArray
+use ndgrid::{
+    traits::{Entity, Geometry, GeometryMap, Grid, Topology},
+    types::Scalar,
 };
+use quadraturerules::{Domain, QuadratureRule, single_integral_quadrature};
+use rlst::{DynArray, rlst_dynamic_array};
 
 /// Assemble a mass matrix using dual spaces
 pub fn assemble_dual<
     'a,
     TReal: Scalar,
-    T: Scalar<Real=TReal>,
+    T: Scalar<Real = TReal>,
     G: Grid<T = TReal, EntityDescriptor = ReferenceCellType>,
     FineG: Grid<T = TReal, EntityDescriptor = ReferenceCellType>,
     M: Map,
-    TestF: FunctionSpace<Grid=FineG, EntityDescriptor = ReferenceCellType, FiniteElement=CiarletElement<T, M>>,
-    TrialF: FunctionSpace<Grid=FineG, EntityDescriptor = ReferenceCellType, FiniteElement=CiarletElement<T, M>>,
+    TestF: FunctionSpace<
+            Grid = FineG,
+            EntityDescriptor = ReferenceCellType,
+            FiniteElement = CiarletElement<T, M>,
+        >,
+    TrialF: FunctionSpace<
+            Grid = FineG,
+            EntityDescriptor = ReferenceCellType,
+            FiniteElement = CiarletElement<T, M>,
+        >,
 >(
     test_space: &DualSpace<'a, TReal, T, G, FineG, TestF>,
     trial_space: &DualSpace<'a, TReal, T, G, FineG, TrialF>,
@@ -55,14 +60,21 @@ pub fn assemble_dual<
 
 /// Assemble a mass matrix
 pub fn assemble<
-    'a,
     T: Scalar,
     G: Grid<T = T::Real, EntityDescriptor = ReferenceCellType>,
     TestF: MappedFiniteElement<T = T, CellType = ReferenceCellType>,
     TrialF: MappedFiniteElement<T = T, CellType = ReferenceCellType>,
 >(
-    test_space: &impl FunctionSpace<Grid=G, FiniteElement=TestF, EntityDescriptor=ReferenceCellType>,
-    trial_space: &impl FunctionSpace<Grid=G, FiniteElement=TrialF, EntityDescriptor=ReferenceCellType>,
+    test_space: &impl FunctionSpace<
+        Grid = G,
+        FiniteElement = TestF,
+        EntityDescriptor = ReferenceCellType,
+    >,
+    trial_space: &impl FunctionSpace<
+        Grid = G,
+        FiniteElement = TrialF,
+        EntityDescriptor = ReferenceCellType,
+    >,
 ) -> DynArray<T, 2> {
     assert_eq!(
         test_space.grid() as *const G,
@@ -71,13 +83,34 @@ pub fn assemble<
 
     let mut matrix = rlst_dynamic_array!(T, [test_space.local_size(), trial_space.local_size()]);
 
-    let geometry_degree = test_space.grid().entity_iter(test_space.grid().entity_types(test_space.grid().topology_dim())[0]).next().unwrap().geometry().degree();
+    let geometry_degree = test_space
+        .grid()
+        .entity_iter(
+            test_space
+                .grid()
+                .entity_types(test_space.grid().topology_dim())[0],
+        )
+        .next()
+        .unwrap()
+        .geometry()
+        .degree();
 
-    for ct in test_space.grid().entity_types(test_space.grid().topology_dim()) {
-        let test_es = test_space.elements().iter().filter(|e| e.cell_type() == *ct).collect::<Vec<_>>();
+    for ct in test_space
+        .grid()
+        .entity_types(test_space.grid().topology_dim())
+    {
+        let test_es = test_space
+            .elements()
+            .iter()
+            .filter(|e| e.cell_type() == *ct)
+            .collect::<Vec<_>>();
         assert_eq!(test_es.len(), 1);
         let test_e = test_es[0];
-        let trial_es = trial_space.elements().iter().filter(|e| e.cell_type() == *ct).collect::<Vec<_>>();
+        let trial_es = trial_space
+            .elements()
+            .iter()
+            .filter(|e| e.cell_type() == *ct)
+            .collect::<Vec<_>>();
         assert_eq!(trial_es.len(), 1);
         let trial_e = trial_es[0];
         let (points, weights) = match ct {
@@ -135,7 +168,9 @@ pub fn assemble<
         let mut trial_table = DynArray::<T, 4>::from_shape(trial_e.tabulate_array_shape(0, npts));
         trial_e.tabulate(&points, 0, &mut trial_table);
 
-        let gmap = test_space.grid().geometry_map(*ct, geometry_degree, points.data().unwrap());
+        let gmap = test_space
+            .grid()
+            .geometry_map(*ct, geometry_degree, points.data().unwrap());
 
         let mut jacobians =
             vec![
@@ -149,8 +184,12 @@ pub fn assemble<
             rlst_dynamic_array!(T, [test_table.shape()[2], trial_table.shape()[2]]);
 
         for cell in test_space.grid().entity_iter(*ct) {
-            let test_dofs = test_space.entity_closure_dofs(*ct, cell.local_index()).unwrap();
-            let trial_dofs = trial_space.entity_closure_dofs(*ct, cell.local_index()).unwrap();
+            let test_dofs = test_space
+                .entity_closure_dofs(*ct, cell.local_index())
+                .unwrap();
+            let trial_dofs = trial_space
+                .entity_closure_dofs(*ct, cell.local_index())
+                .unwrap();
             gmap.jacobians_dets_normals(
                 cell.local_index(),
                 &mut jacobians,

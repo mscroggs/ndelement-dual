@@ -2,8 +2,8 @@ use ndelement::{
     ciarlet::{NedelecFirstKindElementFamily, RaviartThomasElementFamily},
     types::{Continuity, ReferenceCellType},
 };
-use ndfunctionspace::FunctionSpaceImpl;
 use ndelement_dual::assemble_mass_matrix;
+use ndfunctionspace::FunctionSpaceImpl;
 use ndgrid::{shapes::regular_sphere, traits::Grid};
 use rlst::{Shape, SingularValueDecomposition};
 
@@ -23,7 +23,10 @@ fn main() {
             "Number of cells:  {}",
             grid.entity_count(ReferenceCellType::Triangle)
         );
-        println!("Condition number: {}", svals[[0]] / svals[[svals.len() - 1]]);
+        println!(
+            "Condition number: {}",
+            svals[[0]] / svals[[svals.len() - 1]]
+        );
         println!();
     }
 }
