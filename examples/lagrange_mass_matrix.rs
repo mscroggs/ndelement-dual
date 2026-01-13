@@ -5,7 +5,7 @@ use ndelement::{
 use ndelement_dual::assemble_mass_matrix;
 use ndfunctionspace::FunctionSpaceImpl;
 use ndgrid::{shapes::regular_sphere, traits::Grid};
-use rlst::{Shape, SingularValueDecomposition};
+use rlst::SingularValueDecomposition;
 
 fn main() {
     for i in 0..5 {

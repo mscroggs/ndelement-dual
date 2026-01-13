@@ -292,8 +292,8 @@ mod test {
     use crate::{assemble_mass_matrix, assemble_mass_matrix_dual};
     use approx::*;
     use ndelement::{ciarlet::LagrangeElementFamily, types::Continuity};
+    use ndfunctionspace::FunctionSpaceImpl;
     use ndgrid::shapes;
-    use rlst::Shape;
 
     #[test]
     fn test_barycentric_representation_lagrange_triangles() {
