@@ -6,6 +6,7 @@ use ndgrid::{
     traits::{Builder, Entity, Geometry, Grid, Point, Topology},
     types::Scalar,
 };
+use std::collections::HashMap;
 
 /// A grid and its barcentric refinement
 pub struct RefinedGrid<
@@ -18,7 +19,7 @@ pub struct RefinedGrid<
     bgrid: FineG,
     child_map: Vec<Vec<usize>>,
     parent_map: Vec<(usize, usize)>,
-    fine_vertices: Vec<usize>,
+    fine_vertices: HashMap<ReferenceCellType, Vec<usize>>,
     coarse_vertices: Vec<Option<usize>>,
 }
 
@@ -49,9 +50,9 @@ impl<
         self.parent_map[fine_cell_index]
     }
 
-    /// Index of vertex in fine grid that coincides with coarse grid vertex
-    pub fn fine_vertex(&self, coarse_vertex_index: usize) -> usize {
-        self.fine_vertices[coarse_vertex_index]
+    /// Index of vertex in fine grid that is at the midpoint of an entity
+    pub fn fine_vertex(&self, entity_type: ReferenceCellType, entity_index: usize) -> usize {
+        self.fine_vertices[&entity_type][entity_index]
     }
 
     /// Index of vertex in coarse grid that coincides with fine grid vertex,
@@ -68,7 +69,7 @@ impl<'a, T: Scalar, G: Grid<T = T, EntityDescriptor = ReferenceCellType>>
     pub fn new(grid: &'a G) -> Self {
         if grid.topology_dim() != 2 {
             panic!(
-                "Barycentric refinement only implemented for grid with topological dimension 2."
+                "Barycentric refinement only implemented for grids with topological dimension 2."
             );
         }
 
@@ -86,7 +87,12 @@ impl<'a, T: Scalar, G: Grid<T = T, EntityDescriptor = ReferenceCellType>>
             child_map.push(vec![]);
         }
 
-        let mut fine_vertices = vec![0; grid.entity_count(ReferenceCellType::Point)];
+        let mut fine_vertices = HashMap::new();
+        for d in 0..=grid.topology_dim() {
+            for etype in grid.entity_types(d) {
+                fine_vertices.insert(*etype, vec![0; grid.entity_count(*etype)]);
+            }
+        }
         let mut coarse_vertices = vec![];
 
         let mut vertex_i = 0;
@@ -94,7 +100,7 @@ impl<'a, T: Scalar, G: Grid<T = T, EntityDescriptor = ReferenceCellType>>
         for v in grid.entity_iter(ReferenceCellType::Point) {
             v.geometry().points().next().unwrap().coords(&mut p);
             b.add_point(vertex_i, &p);
-            fine_vertices[v.local_index()] = vertex_i;
+            fine_vertices.get_mut(&ReferenceCellType::Point).unwrap()[v.local_index()] = vertex_i;
             coarse_vertices.push(Some(v.local_index()));
             vertex_i += 1;
         }
@@ -109,6 +115,7 @@ impl<'a, T: Scalar, G: Grid<T = T, EntityDescriptor = ReferenceCellType>>
                 *ri = (*pi + *qi) / T::from(2).unwrap();
             }
             b.add_point(vertex_i, &r);
+            fine_vertices.get_mut(&ReferenceCellType::Interval).unwrap()[e.local_index()] = vertex_i;
             coarse_vertices.push(None);
             vertex_i += 1;
         }
@@ -124,6 +131,7 @@ impl<'a, T: Scalar, G: Grid<T = T, EntityDescriptor = ReferenceCellType>>
                 *si = (*pi + *qi + *ri) / T::from(3).unwrap();
             }
             b.add_point(vertex_i, &s);
+            fine_vertices.get_mut(&ReferenceCellType::Triangle).unwrap()[f.local_index()] = vertex_i;
             coarse_vertices.push(None);
 
             let t = f.topology();
@@ -160,6 +168,7 @@ impl<'a, T: Scalar, G: Grid<T = T, EntityDescriptor = ReferenceCellType>>
                 *si = (*pi + *qi) / T::from(2).unwrap();
             }
             b.add_point(vertex_i, &s);
+            fine_vertices.get_mut(&ReferenceCellType::Quadrilateral).unwrap()[f.local_index()] = vertex_i;
             coarse_vertices.push(None);
 
             let t = f.topology();

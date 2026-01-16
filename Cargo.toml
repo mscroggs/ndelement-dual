@@ -21,7 +21,7 @@ categories = ["mathematics", "science"]
 ndelement = { git = "https://github.com/bempp/nd.git" }
 ndfunctionspace = { git = "https://github.com/bempp/nd.git" }
 ndgrid = { git = "https://github.com/bempp/nd.git" }
-rlst = { version = "0.5" }
+rlst = { version = "0.6" }
 itertools = "0.14.*"
 quadraturerules = "0.9.0"
 

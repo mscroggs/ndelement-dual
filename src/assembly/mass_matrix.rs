@@ -20,16 +20,17 @@ pub fn assemble_dual<
     T: Scalar,
     G: Grid<T = TGeo, EntityDescriptor = ReferenceCellType>,
     FineG: Grid<T = TGeo, EntityDescriptor = ReferenceCellType>,
-    M: Map,
+    TestM: Map,
+    TrialM: Map,
     TestF: FunctionSpace<
             Grid = FineG,
             EntityDescriptor = ReferenceCellType,
-            FiniteElement = CiarletElement<T, M, TGeo>,
+            FiniteElement = CiarletElement<T, TestM, TGeo>,
         >,
     TrialF: FunctionSpace<
             Grid = FineG,
             EntityDescriptor = ReferenceCellType,
-            FiniteElement = CiarletElement<T, M, TGeo>,
+            FiniteElement = CiarletElement<T, TrialM, TGeo>,
         >,
 >(
     test_space: &DualSpace<'a, TGeo, T, G, FineG, TestF>,

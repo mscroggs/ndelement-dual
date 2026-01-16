@@ -8,7 +8,7 @@ use ndgrid::{shapes::regular_sphere, traits::Grid};
 use rlst::SingularValueDecomposition;
 
 fn main() {
-    for i in 0..5 {
+    for i in 0..4 {
         let grid = regular_sphere::<f64>(i);
         let family = LagrangeElementFamily::<f64>::new(1, Continuity::Standard);
         let space = FunctionSpaceImpl::new(&grid, &family);
