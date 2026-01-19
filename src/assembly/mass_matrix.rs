@@ -170,20 +170,34 @@ pub fn assemble<
         let mut trial_table = DynArray::<T, 4>::from_shape(trial_e.tabulate_array_shape(0, npts));
         trial_e.tabulate(&points, 0, &mut trial_table);
 
+        dbg!(test_table.shape());
+
         let gmap = test_space
             .grid()
             .geometry_map(*ct, geometry_degree, points.data().unwrap());
 
-        let mut jacobians =
-            vec![
-                TGeo::zero();
-                test_space.grid().geometry_dim() * test_space.grid().topology_dim() * npts
-            ];
+        let mut jacobians = rlst_dynamic_array!(TGeo, [npts, test_space.grid().geometry_dim(), test_space.grid().topology_dim()]);
+        let mut jinv = rlst_dynamic_array!(TGeo, [npts, test_space.grid().topology_dim(), test_space.grid().geometry_dim()]);
         let mut jdets = vec![TGeo::zero(); npts];
-        let mut normals = vec![TGeo::zero(); test_space.grid().geometry_dim() * npts];
+        let mut normals = rlst_dynamic_array!(TGeo, [npts, test_space.grid().geometry_dim()]);
 
         let mut local_matrix =
             rlst_dynamic_array!(T, [test_table.shape()[2], trial_table.shape()[2]]);
+
+        let mut test_physical_values = rlst_dynamic_array!(T, [
+            test_table.shape()[0],
+            test_table.shape()[1],
+            test_table.shape()[2],
+            test_e.physical_value_size(test_space.grid().geometry_dim())
+        ]
+        );
+        let mut trial_physical_values = rlst_dynamic_array!(T, [
+            trial_table.shape()[0],
+            trial_table.shape()[1],
+            trial_table.shape()[2],
+            trial_e.physical_value_size(trial_space.grid().geometry_dim())
+        ]
+        );
 
         for cell in test_space.grid().entity_iter(*ct) {
             let test_dofs = test_space
@@ -194,22 +208,28 @@ pub fn assemble<
                 .unwrap();
             gmap.jacobians_dets_normals(
                 cell.local_index(),
-                &mut jacobians,
+                jacobians.data_mut().unwrap(),
+                jinv.data_mut().unwrap(),
                 &mut jdets,
-                &mut normals,
+                normals.data_mut().unwrap(),
             );
+
+            test_e.push_forward(&test_table, 0, &jacobians, &jdets, &jinv, &mut test_physical_values);
+            trial_e.push_forward(&trial_table, 0, &jacobians, &jdets, &jinv, &mut trial_physical_values);
+
+
             for (test_i, _test_dof) in test_dofs.iter().enumerate() {
                 for (trial_i, _trial_dof) in trial_dofs.iter().enumerate() {
                     *local_matrix.get_mut([test_i, trial_i]).unwrap() = weights
                         .iter()
                         .enumerate()
                         .map(|(i, w)| {
-                            (0..test_table.shape()[3])
+                            (0..test_physical_values.shape()[3])
                                 .map(|j| {
                                     T::from(jdets[i]).unwrap()
                                         * *w
-                                        * *test_table.get([0, i, test_i, j]).unwrap()
-                                        * *trial_table.get([0, i, trial_i, j]).unwrap()
+                                        * *test_physical_values.get([0, i, test_i, j]).unwrap()
+                                        * *trial_physical_values.get([0, i, trial_i, j]).unwrap()
                                 })
                                 .sum()
                         })
@@ -241,6 +261,7 @@ pub fn assemble<
 mod test {
     use super::*;
     use approx::*;
+    use crate::{RefinedGrid, bc_coefficients};
     use ndelement::{
         ciarlet::{
             LagrangeElementFamily, NedelecFirstKindElementFamily, RaviartThomasElementFamily,
@@ -260,13 +281,6 @@ mod test {
         let family = LagrangeElementFamily::<f64>::new(1, Continuity::Standard);
         let space = FunctionSpaceImpl::new(&grid, &family);
         let result = assemble(&space, &space);
-
-        for i in 0..6 {
-            for j in 0..6 {
-                print!("{} ", result[[i, j]]);
-            }
-            println!();
-        }
 
         for i in 0..6 {
             assert_relative_eq!(result[[i, i]], 0.5773502691896255, epsilon = 1e-10);
@@ -388,4 +402,65 @@ mod test {
             }
         }
     }
+
+    #[test]
+    fn test_rt_assembly() {
+        let grid = shapes::regular_sphere::<f64>(0);
+
+        let rt = RaviartThomasElementFamily::<f64>::new(1, Continuity::Standard);
+        let rt_space = FunctionSpaceImpl::new(&grid, &rt);
+
+        let result = assemble(&rt_space, &rt_space);
+
+        for i in 0..12 {
+            for j in 0..12 {
+                print!("{} ", result[[i, j]]);
+            }
+            println!();
+        }
+
+        for i in 0..12 {
+            assert_relative_eq!(result[[i, i]], 0.9622504486493761, epsilon = 1e-10);
+        }
+        for i in 0..12 {
+            for j in 0..12 {
+                if i != j && result[[i, j]].abs() > 0.001 {
+                    assert_relative_eq!(result[[i, j]].abs(), 0.9622504486493758, epsilon = 1e-10);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_bc_assembly() {
+        let grid = shapes::regular_sphere::<f64>(0);
+        let rgrid = RefinedGrid::new(&grid);
+
+        let rt = RaviartThomasElementFamily::<f64>::new(1, Continuity::Standard);
+        let fine_rt_space = FunctionSpaceImpl::new(rgrid.fine_grid(), &rt);
+        let bc_space = DualSpace::new(&rgrid, &fine_rt_space, bc_coefficients(&rgrid, &fine_rt_space, Continuity::Standard));
+
+        let result = assemble_dual(&bc_space, &bc_space);
+
+        for i in 0..12 {
+            for j in 0..12 {
+                print!("{} ", result[[i, j]]);
+            }
+            println!();
+        }
+
+        for i in 0..12 {
+            assert_relative_eq!(result[[i, i]], 0.9141379262169064, epsilon = 1e-10);
+        }
+        /*
+        for i in 0..6 {
+            for j in 0..6 {
+                if i != j && result[[i, j]].abs() > 0.001 {
+                    assert_relative_eq!(result[[i, j]], 0.1443375672974061, epsilon = 1e-10);
+                }
+            }
+        }
+        */
+    }
+
 }

@@ -115,7 +115,8 @@ impl<'a, T: Scalar, G: Grid<T = T, EntityDescriptor = ReferenceCellType>>
                 *ri = (*pi + *qi) / T::from(2).unwrap();
             }
             b.add_point(vertex_i, &r);
-            fine_vertices.get_mut(&ReferenceCellType::Interval).unwrap()[e.local_index()] = vertex_i;
+            fine_vertices.get_mut(&ReferenceCellType::Interval).unwrap()[e.local_index()] =
+                vertex_i;
             coarse_vertices.push(None);
             vertex_i += 1;
         }
@@ -131,7 +132,8 @@ impl<'a, T: Scalar, G: Grid<T = T, EntityDescriptor = ReferenceCellType>>
                 *si = (*pi + *qi + *ri) / T::from(3).unwrap();
             }
             b.add_point(vertex_i, &s);
-            fine_vertices.get_mut(&ReferenceCellType::Triangle).unwrap()[f.local_index()] = vertex_i;
+            fine_vertices.get_mut(&ReferenceCellType::Triangle).unwrap()[f.local_index()] =
+                vertex_i;
             coarse_vertices.push(None);
 
             let t = f.topology();
@@ -168,7 +170,9 @@ impl<'a, T: Scalar, G: Grid<T = T, EntityDescriptor = ReferenceCellType>>
                 *si = (*pi + *qi) / T::from(2).unwrap();
             }
             b.add_point(vertex_i, &s);
-            fine_vertices.get_mut(&ReferenceCellType::Quadrilateral).unwrap()[f.local_index()] = vertex_i;
+            fine_vertices
+                .get_mut(&ReferenceCellType::Quadrilateral)
+                .unwrap()[f.local_index()] = vertex_i;
             coarse_vertices.push(None);
 
             let t = f.topology();
