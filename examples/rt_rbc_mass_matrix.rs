@@ -1,3 +1,4 @@
+use itertools::izip;
 use ndelement::{
     ciarlet::{NedelecFirstKindElementFamily, RaviartThomasElementFamily},
     types::{Continuity, ReferenceCellType},
@@ -7,16 +8,14 @@ use ndelement_dual::{DualSpace, assemble_mass_matrix_dual, assemble_mass_matrix,
 use ndfunctionspace::FunctionSpaceImpl;
 use ndgrid::{shapes::regular_sphere, traits::Grid};
 use rlst::SingularValueDecomposition;
+use approx::assert_relative_eq;
 
 fn main() {
-    let ct = ReferenceCellType::Quadrilateral;
     for i in 0..4 {
-        //let grid = regular_sphere::<f64>(i);
-        let n = usize::pow(2, i);
-        let grid = ndgrid::shapes::unit_cube_boundary::<f64>(n, n, n, ct);
+        let grid = regular_sphere::<f64>(i);
         println!(
             "Number of cells:  {}",
-            grid.entity_count(ct)
+            grid.entity_count(ReferenceCellType::Triangle)
         );
 
         let rt = RaviartThomasElementFamily::<f64>::new(1, Continuity::Standard);
@@ -28,6 +27,25 @@ fn main() {
         let matrix = assemble_mass_matrix(&rt_space, &nc_space);
 
         let svals = matrix.singular_values().unwrap();
+
+        if i == 0 {
+            for (a, b) in izip!(svals.iter_value(), [
+                0.9428090415820631,
+                0.942809041582063,
+                0.9428090415820629,
+                0.9428090415820629,
+                0.9428090415820628,
+                0.9428090415820626,
+                5.193434761422128e-16,
+                3.617058416257079e-16,
+                2.329968774872454e-16,
+                2.010394653368211e-16,
+                5.1211811170143e-17,
+                4.411965373903633e-17,
+            ]) {
+                assert_relative_eq!(a, b / 2.0, epsilon=1e-10);
+            }
+        }
 
         println!(
             "Condition number (RT-NC): {}",
@@ -48,6 +66,26 @@ fn main() {
         let matrix = assemble_mass_matrix_dual(&rt_space, &rbc_space);
 
         let svals = matrix.singular_values().unwrap();
+
+        if i == 0 {
+            dbg!(svals.data());
+            for (a, b) in izip!(svals.iter_value(), [
+                0.9428090415820628,
+                0.9428090415820626,
+                0.9428090415820621,
+                0.8642416214502241,
+                0.864241621450224,
+                0.864241621450224,
+                0.6285393610547082,
+                0.6285393610547081,
+                0.6285393610547079,
+                0.5892556509887891,
+                0.589255650988789,
+                0.47140452079103085,
+            ]) {
+                assert_relative_eq!(a, b / 2.0, epsilon=1e-10);
+            }
+        }
 
         println!("Condition number (RT-RBC): {}", svals[[0]] / svals[[svals.len() - 1]]);
         println!();
