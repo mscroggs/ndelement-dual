@@ -433,18 +433,25 @@ mod test {
 
         let result = assemble_dual(&bc_space, &bc_space);
 
+        
+
+        for i in 0..12 {
+            dbg!(result[[i, i]]);
+        }
         for i in 0..12 {
             assert_relative_eq!(result[[i, i]], 0.9141379262169064, epsilon = 1e-10);
         }
-        /*
-        for i in 0..6 {
-            for j in 0..6 {
-                if i != j && result[[i, j]].abs() > 0.001 {
-                    assert_relative_eq!(result[[i, j]], 0.1443375672974061, epsilon = 1e-10);
+        for i in 0..12 {
+            for j in 0..12 {
+                if i != j {
+                    if result[[i, j]].abs() > 0.1 {
+                        assert_relative_eq!(result[[i, j]].abs(), 0.12028130608117193, epsilon = 1e-10);
+                    } else if result[[i, j]].abs() > 0.001 {
+                        assert_relative_eq!(result[[i, j]].abs(), 0.048112522432468816, epsilon = 1e-10);
+                    }
                 }
             }
         }
-        */
     }
 
 }

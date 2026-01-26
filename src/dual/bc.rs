@@ -54,6 +54,7 @@ pub fn coefficients<
         pts.next().unwrap().coords(&mut p1);
         let coarse_edge_length = T::from(distance(&p0, &p1)).unwrap();
         dbg!(coarse_edge_length);
+        let coarse_edge_length = T::one();
 
         let edge_point = refined_grid.fine_vertex(ReferenceCellType::Interval, edge.local_index());
 
@@ -135,9 +136,11 @@ pub fn coefficients<
             })
             .unwrap();
             let total = ordered_edges.len();
-            let mut n = total / 2 - 1;
+            let mut n = total as i32 / 2 - 1;
 
             fine_grid.entity(ReferenceCellType::Point, fine_v_index).unwrap().geometry().points().next().unwrap().coords(&mut p0);
+            println!("point in middle of dual cell: {} {} {}", p0[0], p0[1], p0[2]);
+            dbg!(&ordered_edges);
 
             for e in ordered_edges.iter().skip(1) {
                 if n != 0 {
@@ -154,15 +157,14 @@ pub fn coefficients<
                     let edofs = fine_space
                         .entity_dofs(ReferenceCellType::Interval, *e)
                         .unwrap();
-                    dbg!(&p0);
-                    dbg!(&p1);
-                    dbg!(distance(&p0, &p1));
+                    println!("  Vertex of dual cell: {} {} {}", p1[0], p1[1], p1[2]);
+                    println!("  Distance: {}", distance(&p0, &p1));
                     c.insert(
                         edofs[0],
-                        edge_sign * T::from(n).unwrap() / T::from(total).unwrap()  * coarse_edge_length / T::from(distance(&p0, &p1)).unwrap(),
+                        edge_sign * T::from(n).unwrap() / T::from(total).unwrap() / T::from(distance(&p0, &p1)).unwrap(),
                     );
-                    n -= 1;
                 }
+                n -= 1;
             }
 
             fine_grid.entity(ReferenceCellType::Point, edge_point).unwrap().geometry().points().next().unwrap().coords(&mut p0);
@@ -184,10 +186,10 @@ pub fn coefficients<
                     let edofs = fine_space
                         .entity_dofs(ReferenceCellType::Interval, e)
                         .unwrap();
-                    dbg!(&p0);
-                    dbg!(&p1);
-                    dbg!(distance(&p0, &p1));
-                    c.insert(edofs[0], edge_sign * T::from(0.5).unwrap() * coarse_edge_length / T::from(distance(&p0, &p1)).unwrap());
+                    //dbg!(&p0);
+                    //dbg!(&p1);
+                    //dbg!(distance(&p0, &p1));
+                    c.insert(edofs[0], edge_sign * T::from(0.5).unwrap() * coarse_edge_length);
                     break;
                 }
             }
@@ -209,20 +211,22 @@ pub fn coefficients<
                     let edofs = fine_space
                         .entity_dofs(ReferenceCellType::Interval, e)
                         .unwrap();
-                    dbg!(&p0);
-                    dbg!(&p1);
-                    dbg!(distance(&p0, &p1));
-                    c.insert(edofs[0], edge_sign * T::from(-0.5).unwrap() * coarse_edge_length / T::from(distance(&p0, &p1)).unwrap());
+                    //dbg!(&p0);
+                    //dbg!(&p1);
+                    //dbg!(distance(&p0, &p1));
+                    c.insert(edofs[0], edge_sign * T::from(-0.5).unwrap() * coarse_edge_length);
                     break;
                 }
             }
 
             if continuity == Continuity::Discontinuous {
+                dbg!(&c);
                 coeffs.push(c);
                 c = HashMap::new();
             }
         }
         if continuity == Continuity::Standard {
+            dbg!(&c);
             coeffs.push(c);
         }
     }
@@ -265,3 +269,4 @@ mod test {
         assert_eq!(2 * nc_space.local_size(), dbc_space.dim());
     }
 }
+
