@@ -598,9 +598,6 @@ mod test {
         let grid = shapes::screen::<f64>(1, ReferenceCellType::Triangle);
         let rgrid = RefinedGrid::new(&grid);
 
-        use ndgrid::traits::GmshExport;
-        rgrid.fine_grid().export_as_gmsh("screen.msh");
-
         let family = RaviartThomasElementFamily::<f64>::new(1, Continuity::Standard);
 
         let coarse_space = FunctionSpaceImpl::new(&grid, &family);
