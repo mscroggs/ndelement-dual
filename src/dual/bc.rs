@@ -7,15 +7,9 @@ use ndelement::{
     types::{Continuity, ReferenceCellType},
 };
 use ndfunctionspace::traits::FunctionSpace;
-use ndgrid::traits::{Entity, Grid, Topology, Geometry, Point};
+use ndgrid::traits::{Entity, Geometry, Grid, Point, Topology};
 use ndgrid::types::Scalar;
 use std::collections::HashMap;
-use itertools::izip;
-
-fn distance<T: Scalar>(a: &[T], b: &[T]) -> T {
-    debug_assert!(a.len() == b.len());
-    izip!(a, b).map(|(&i, &j)| (i - j).powi(2)).sum::<T>().sqrt()
-}
 
 /// Generate the coefficients that define the basis functions of a BC space
 pub fn coefficients<
@@ -47,23 +41,15 @@ pub fn coefficients<
 
     let mut coeffs = vec![];
     for edge in coarse_grid.entity_iter(ReferenceCellType::Interval) {
-
         let g = edge.geometry();
         let mut pts = g.points();
         pts.next().unwrap().coords(&mut p0);
         pts.next().unwrap().coords(&mut p1);
-        let coarse_edge_length = T::from(distance(&p0, &p1)).unwrap();
-        dbg!(coarse_edge_length);
-        let coarse_edge_length = T::one();
 
         let edge_point = refined_grid.fine_vertex(ReferenceCellType::Interval, edge.local_index());
 
         let mut c = HashMap::new();
-        for (vi, coarse_v_index) in edge
-            .topology()
-            .sub_entity_iter(ReferenceCellType::Point)
-            .enumerate()
-        {
+        for coarse_v_index in edge.topology().sub_entity_iter(ReferenceCellType::Point) {
             let fine_v_index = refined_grid.fine_vertex(ReferenceCellType::Point, coarse_v_index);
             let fine_v = fine_grid
                 .entity(ReferenceCellType::Point, fine_v_index)
@@ -127,20 +113,17 @@ pub fn coefficients<
                 fine_faces.remove(used.unwrap());
             }
 
-            let sign = T::from(match vi {
-                0 => 1,
-                1 => -1,
-                _ => {
-                    panic!("Edge with more than two vertices");
-                }
-            })
-            .unwrap();
             let total = ordered_edges.len();
             let mut n = total as i32 / 2 - 1;
 
-            fine_grid.entity(ReferenceCellType::Point, fine_v_index).unwrap().geometry().points().next().unwrap().coords(&mut p0);
-            println!("point in middle of dual cell: {} {} {}", p0[0], p0[1], p0[2]);
-            dbg!(&ordered_edges);
+            fine_grid
+                .entity(ReferenceCellType::Point, fine_v_index)
+                .unwrap()
+                .geometry()
+                .points()
+                .next()
+                .unwrap()
+                .coords(&mut p0);
 
             for e in ordered_edges.iter().skip(1) {
                 if n != 0 {
@@ -152,22 +135,38 @@ pub fn coefficients<
                         .filter(|i| *i != fine_v_index)
                         .next()
                         .unwrap();
-                    let edge_sign = if v > fine_v_index { sign } else { -sign };
-                    fine_grid.entity(ReferenceCellType::Point, v).unwrap().geometry().points().next().unwrap().coords(&mut p1);
+                    let edge_sign = if v > fine_v_index {
+                        T::one()
+                    } else {
+                        -T::one()
+                    };
+                    fine_grid
+                        .entity(ReferenceCellType::Point, v)
+                        .unwrap()
+                        .geometry()
+                        .points()
+                        .next()
+                        .unwrap()
+                        .coords(&mut p1);
                     let edofs = fine_space
                         .entity_dofs(ReferenceCellType::Interval, *e)
                         .unwrap();
-                    println!("  Vertex of dual cell: {} {} {}", p1[0], p1[1], p1[2]);
-                    println!("  Distance: {}", distance(&p0, &p1));
                     c.insert(
                         edofs[0],
-                        edge_sign * T::from(n).unwrap() / T::from(total).unwrap() / T::from(distance(&p0, &p1)).unwrap(),
+                        edge_sign * T::from(n).unwrap() / T::from(total).unwrap(),
                     );
                 }
                 n -= 1;
             }
 
-            fine_grid.entity(ReferenceCellType::Point, edge_point).unwrap().geometry().points().next().unwrap().coords(&mut p0);
+            fine_grid
+                .entity(ReferenceCellType::Point, edge_point)
+                .unwrap()
+                .geometry()
+                .points()
+                .next()
+                .unwrap()
+                .coords(&mut p0);
             for e in first_face
                 .unwrap()
                 .topology()
@@ -181,15 +180,19 @@ pub fn coefficients<
                     .collect::<Vec<_>>();
                 if !vs.contains(&fine_v_index) {
                     let v = if vs[0] == edge_point { vs[1] } else { vs[0] };
-                    let edge_sign = if v > edge_point { sign } else { -sign };
-                    fine_grid.entity(ReferenceCellType::Point, v).unwrap().geometry().points().next().unwrap().coords(&mut p1);
+                    let edge_sign = if v > edge_point { T::one() } else { -T::one() };
+                    fine_grid
+                        .entity(ReferenceCellType::Point, v)
+                        .unwrap()
+                        .geometry()
+                        .points()
+                        .next()
+                        .unwrap()
+                        .coords(&mut p1);
                     let edofs = fine_space
                         .entity_dofs(ReferenceCellType::Interval, e)
                         .unwrap();
-                    //dbg!(&p0);
-                    //dbg!(&p1);
-                    //dbg!(distance(&p0, &p1));
-                    c.insert(edofs[0], edge_sign * T::from(0.5).unwrap() * coarse_edge_length);
+                    c.insert(edofs[0], edge_sign * T::from(0.5).unwrap());
                     break;
                 }
             }
@@ -206,30 +209,33 @@ pub fn coefficients<
                     .collect::<Vec<_>>();
                 if !vs.contains(&fine_v_index) {
                     let v = if vs[0] == edge_point { vs[1] } else { vs[0] };
-                    let edge_sign = if v > edge_point { sign } else { -sign };
-                    fine_grid.entity(ReferenceCellType::Point, v).unwrap().geometry().points().next().unwrap().coords(&mut p1);
+                    let edge_sign = if v > edge_point { T::one() } else { -T::one() };
+                    fine_grid
+                        .entity(ReferenceCellType::Point, v)
+                        .unwrap()
+                        .geometry()
+                        .points()
+                        .next()
+                        .unwrap()
+                        .coords(&mut p1);
                     let edofs = fine_space
                         .entity_dofs(ReferenceCellType::Interval, e)
                         .unwrap();
-                    //dbg!(&p0);
-                    //dbg!(&p1);
-                    //dbg!(distance(&p0, &p1));
-                    c.insert(edofs[0], edge_sign * T::from(-0.5).unwrap() * coarse_edge_length);
+                    c.insert(edofs[0], edge_sign * T::from(-0.5).unwrap());
                     break;
                 }
             }
 
             if continuity == Continuity::Discontinuous {
-                dbg!(&c);
                 coeffs.push(c);
                 c = HashMap::new();
             }
         }
         if continuity == Continuity::Standard {
-            dbg!(&c);
             coeffs.push(c);
         }
     }
+
     coeffs
 }
 
@@ -269,4 +275,3 @@ mod test {
         assert_eq!(2 * nc_space.local_size(), dbc_space.dim());
     }
 }
-
