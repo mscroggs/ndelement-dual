@@ -213,11 +213,9 @@ pub fn coefficients<
                             );
                             coarse_e.tabulate(&mapped_pts, 0, &mut table);
 
-                            let coarse_gmap = grid.coarse_grid().geometry_map(
-                                *ct,
-                                cell.geometry().degree(),
-                                &pts,
-                            );
+                            let coarse_gmap =
+                                grid.coarse_grid()
+                                    .geometry_map(*ct, cell.geometry().degree(), pts);
                             let fine_gmap = grid.fine_grid().geometry_map(
                                 fine_e.cell_type(),
                                 fine_cell.geometry().degree(),

@@ -59,7 +59,7 @@ pub fn coefficients<
             let mut ordered_edges = vec![];
             let mut next_edge = *fine_edges
                 .iter()
-                .filter(|i| {
+                .find(|i| {
                     let vs = fine_grid
                         .entity(ReferenceCellType::Interval, **i)
                         .unwrap()
@@ -68,7 +68,6 @@ pub fn coefficients<
                         .collect::<Vec<_>>();
                     vs.contains(&edge_point)
                 })
-                .next()
                 .unwrap();
 
             let mut first_face = None;
@@ -88,7 +87,7 @@ pub fn coefficients<
                     if edges.contains(&next_edge) {
                         for e in &edges {
                             if fine_edges.contains(e) && *e != next_edge {
-                                if !first_face.is_some() {
+                                if first_face.is_none() {
                                     first_face = Some(face);
                                 } else {
                                     last_face = Some(face);
@@ -114,8 +113,7 @@ pub fn coefficients<
                         .unwrap()
                         .topology()
                         .sub_entity_iter(ReferenceCellType::Point)
-                        .filter(|i| *i != fine_v_index)
-                        .next()
+                        .find(|i| *i != fine_v_index)
                         .unwrap();
                     let edge_sign = if v > fine_v_index {
                         T::one()
