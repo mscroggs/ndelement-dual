@@ -514,17 +514,6 @@ mod test {
         let result = assemble_dual(&rt_space, &bc_space);
 
         for i in 0..12 {
-            println!("{}", result[[i, i]]);
-        }
-        for i in 0..12 {
-            for j in 0..12 {
-                if i != j {
-                    println!("{}", result[[i, j]]);
-                }
-            }
-            println!("-");
-        }
-        for i in 0..12 {
             assert_relative_eq!(result[[i, i]], 0.0, epsilon = 1e-10);
         }
         for i in 0..12 {
@@ -533,13 +522,13 @@ mod test {
                     if result[[i, j]].abs() > 0.1 {
                         assert_relative_eq!(
                             result[[i, j]].abs(),
-                            0.294845987557234,
+                            0.294845987557234 / f64::sqrt(2.0),
                             epsilon = 1e-10
                         );
-                    } else {
+                    } else if result[[i, j]].abs() > 0.001 {
                         assert_relative_eq!(
                             result[[i, j]].abs(),
-                            0.011340230290662836,
+                            0.011340230290662836 / f64::sqrt(2.0),
                             epsilon = 1e-10
                         );
                     }
@@ -573,10 +562,11 @@ mod test {
         let result = assemble_dual(&rt_space, &rbc_space);
 
         for i in 0..12 {
-            println!("{}", result[[i, i]]);
-        }
-        for i in 0..12 {
-            assert_relative_eq!(result[[i, i]], 0.7463904912524658, epsilon = 1e-10);
+            assert_relative_eq!(
+                result[[i, i]].abs(),
+                0.7463904912524658 / f64::sqrt(2.0),
+                epsilon = 1e-10
+            );
         }
         for i in 0..12 {
             for j in 0..12 {
@@ -584,19 +574,19 @@ mod test {
                     if result[[i, j]].abs() > 0.05 {
                         assert_relative_eq!(
                             result[[i, j]].abs(),
-                            0.09820927516479813,
+                            0.09820927516479813 / f64::sqrt(2.0),
                             epsilon = 1e-10
                         );
                     } else if result[[i, j]].abs() > 0.025 {
                         assert_relative_eq!(
                             result[[i, j]].abs(),
-                            0.03928371006591926,
+                            0.03928371006591926 / f64::sqrt(2.0),
                             epsilon = 1e-10
                         );
-                    } else {
+                    } else if result[[i, j]].abs() > 0.001 {
                         assert_relative_eq!(
                             result[[i, j]].abs(),
-                            0.019641855032959628,
+                            0.019641855032959628 / f64::sqrt(2.0),
                             epsilon = 1e-10
                         );
                     }

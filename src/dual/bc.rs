@@ -7,7 +7,7 @@ use ndelement::{
     types::{Continuity, ReferenceCellType},
 };
 use ndfunctionspace::traits::FunctionSpace;
-use ndgrid::traits::{Entity, Geometry, Grid, Point, Topology};
+use ndgrid::traits::{Entity, Grid, Topology};
 use ndgrid::types::Scalar;
 use std::collections::HashMap;
 
@@ -31,21 +31,12 @@ pub fn coefficients<
     let fine_grid = refined_grid.fine_grid();
     let coarse_grid = refined_grid.coarse_grid();
 
-    let gdim = coarse_grid.geometry_dim();
     assert_eq!(coarse_grid.topology_dim(), 2);
     assert_eq!(fine_grid.entity_types(2).len(), 1);
     assert_eq!(fine_grid.entity_types(2)[0], ReferenceCellType::Triangle);
 
-    let mut p0 = vec![TGeo::zero(); gdim];
-    let mut p1 = vec![TGeo::zero(); gdim];
-
     let mut coeffs = vec![];
     for edge in coarse_grid.entity_iter(ReferenceCellType::Interval) {
-        let g = edge.geometry();
-        let mut pts = g.points();
-        pts.next().unwrap().coords(&mut p0);
-        pts.next().unwrap().coords(&mut p1);
-
         let edge_point = refined_grid.fine_vertex(ReferenceCellType::Interval, edge.local_index());
 
         let mut c = HashMap::new();
@@ -116,15 +107,6 @@ pub fn coefficients<
             let total = ordered_edges.len();
             let mut n = total as i32 / 2 - 1;
 
-            fine_grid
-                .entity(ReferenceCellType::Point, fine_v_index)
-                .unwrap()
-                .geometry()
-                .points()
-                .next()
-                .unwrap()
-                .coords(&mut p0);
-
             for e in ordered_edges.iter().skip(1) {
                 if n != 0 {
                     let v = fine_grid
@@ -140,14 +122,6 @@ pub fn coefficients<
                     } else {
                         -T::one()
                     };
-                    fine_grid
-                        .entity(ReferenceCellType::Point, v)
-                        .unwrap()
-                        .geometry()
-                        .points()
-                        .next()
-                        .unwrap()
-                        .coords(&mut p1);
                     let edofs = fine_space
                         .entity_dofs(ReferenceCellType::Interval, *e)
                         .unwrap();
@@ -159,14 +133,6 @@ pub fn coefficients<
                 n -= 1;
             }
 
-            fine_grid
-                .entity(ReferenceCellType::Point, edge_point)
-                .unwrap()
-                .geometry()
-                .points()
-                .next()
-                .unwrap()
-                .coords(&mut p0);
             for e in first_face
                 .unwrap()
                 .topology()
@@ -181,14 +147,6 @@ pub fn coefficients<
                 if !vs.contains(&fine_v_index) {
                     let v = if vs[0] == edge_point { vs[1] } else { vs[0] };
                     let edge_sign = if v > edge_point { T::one() } else { -T::one() };
-                    fine_grid
-                        .entity(ReferenceCellType::Point, v)
-                        .unwrap()
-                        .geometry()
-                        .points()
-                        .next()
-                        .unwrap()
-                        .coords(&mut p1);
                     let edofs = fine_space
                         .entity_dofs(ReferenceCellType::Interval, e)
                         .unwrap();
@@ -210,14 +168,6 @@ pub fn coefficients<
                 if !vs.contains(&fine_v_index) {
                     let v = if vs[0] == edge_point { vs[1] } else { vs[0] };
                     let edge_sign = if v > edge_point { T::one() } else { -T::one() };
-                    fine_grid
-                        .entity(ReferenceCellType::Point, v)
-                        .unwrap()
-                        .geometry()
-                        .points()
-                        .next()
-                        .unwrap()
-                        .coords(&mut p1);
                     let edofs = fine_space
                         .entity_dofs(ReferenceCellType::Interval, e)
                         .unwrap();

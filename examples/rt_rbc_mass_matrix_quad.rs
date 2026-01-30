@@ -7,7 +7,7 @@ use ndelement_dual::{
     barycentric_representation_coefficients, bc_coefficients,
 };
 use ndfunctionspace::FunctionSpaceImpl;
-use ndgrid::{shapes::regular_sphere, traits::Grid};
+use ndgrid::traits::Grid;
 use rlst::SingularValueDecomposition;
 
 fn main() {

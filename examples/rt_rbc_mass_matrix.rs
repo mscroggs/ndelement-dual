@@ -80,7 +80,6 @@ fn main() {
         let svals = matrix.singular_values().unwrap();
 
         if i == 0 {
-            dbg!(svals.data());
             for (a, b) in izip!(
                 svals.iter_value(),
                 [
@@ -98,7 +97,7 @@ fn main() {
                     0.47140452079103085,
                 ]
             ) {
-                // assert_relative_eq!(a, b / 2.0, epsilon=1e-10);
+                assert_relative_eq!(a, b / f64::sqrt(2.0), epsilon = 1e-10);
             }
         }
 
