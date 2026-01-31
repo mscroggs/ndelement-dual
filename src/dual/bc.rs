@@ -200,7 +200,7 @@ mod test {
 
     #[test]
     fn test_bc_space() {
-        let grid = shapes::regular_sphere::<f64>(1);
+        let grid = shapes::regular_sphere::<f64>(1, ReferenceCellType::Triangle);
 
         let nc = NedelecFirstKindElementFamily::<f64>::new(1, Continuity::Standard);
         let nc_space = FunctionSpaceImpl::new(&grid, &nc);

@@ -306,7 +306,7 @@ mod test {
 
     #[test]
     fn test_lagrange_assembly() {
-        let grid = shapes::regular_sphere::<f64>(0);
+        let grid = shapes::regular_sphere::<f64>(0, ReferenceCellType::Triangle);
         let family = LagrangeElementFamily::<f64>::new(1, Continuity::Standard);
         let space = FunctionSpaceImpl::new(&grid, &family);
         let result = assemble(&space, &space);
@@ -352,7 +352,7 @@ mod test {
 
     #[test]
     fn test_rt_nc_assembly() {
-        let grid = shapes::regular_sphere::<f64>(0);
+        let grid = shapes::regular_sphere::<f64>(0, ReferenceCellType::Triangle);
         let rt = RaviartThomasElementFamily::<f64>::new(1, Continuity::Standard);
         let nc = NedelecFirstKindElementFamily::<f64>::new(1, Continuity::Standard);
         let rt_space = FunctionSpaceImpl::new(&grid, &rt);
@@ -430,7 +430,7 @@ mod test {
 
     #[test]
     fn test_rt_assembly() {
-        let grid = shapes::regular_sphere::<f64>(0);
+        let grid = shapes::regular_sphere::<f64>(0, ReferenceCellType::Triangle);
 
         let rt = RaviartThomasElementFamily::<f64>::new(1, Continuity::Standard);
         let rt_space = FunctionSpaceImpl::new(&grid, &rt);
@@ -455,7 +455,7 @@ mod test {
 
     #[test]
     fn test_bc_assembly() {
-        let grid = shapes::regular_sphere::<f64>(0);
+        let grid = shapes::regular_sphere::<f64>(0, ReferenceCellType::Triangle);
         let rgrid = RefinedGrid::new(&grid);
 
         let rt = RaviartThomasElementFamily::<f64>::new(1, Continuity::Standard);
@@ -494,7 +494,7 @@ mod test {
 
     #[test]
     fn test_rt_bc_assembly() {
-        let grid = shapes::regular_sphere::<f64>(0);
+        let grid = shapes::regular_sphere::<f64>(0, ReferenceCellType::Triangle);
         let rgrid = RefinedGrid::new(&grid);
 
         let rt = RaviartThomasElementFamily::<f64>::new(1, Continuity::Standard);
@@ -539,7 +539,7 @@ mod test {
 
     #[test]
     fn test_rt_rbc_assembly() {
-        let grid = shapes::regular_sphere::<f64>(0);
+        let grid = shapes::regular_sphere::<f64>(0, ReferenceCellType::Triangle);
         let rgrid = RefinedGrid::new(&grid);
 
         let rt = RaviartThomasElementFamily::<f64>::new(1, Continuity::Standard);

@@ -358,7 +358,7 @@ mod test {
 
     #[test]
     fn test_lagrange_triangles() {
-        let grid = shapes::regular_sphere::<f64>(1);
+        let grid = shapes::regular_sphere::<f64>(1, ReferenceCellType::Triangle);
         let rgrid = RefinedGrid::new(&grid);
         let family = LagrangeElementFamily::<f64>::new(1, Continuity::Standard);
         let space = FunctionSpaceImpl::new(&grid, &family);
@@ -379,7 +379,7 @@ mod test {
 
     #[test]
     fn test_lagrange_triangles_mixed_degree() {
-        let grid = shapes::regular_sphere::<f64>(1);
+        let grid = shapes::regular_sphere::<f64>(1, ReferenceCellType::Triangle);
         let rgrid = RefinedGrid::new(&grid);
         let family = LagrangeElementFamily::<f64>::new(1, Continuity::Standard);
         let fine_family = LagrangeElementFamily::<f64>::new(2, Continuity::Standard);
@@ -401,7 +401,7 @@ mod test {
 
     #[test]
     fn test_lagrange_triangles_mixed_continuity() {
-        let grid = shapes::regular_sphere::<f64>(1);
+        let grid = shapes::regular_sphere::<f64>(1, ReferenceCellType::Triangle);
         let rgrid = RefinedGrid::new(&grid);
         let family = LagrangeElementFamily::<f64>::new(1, Continuity::Standard);
         let fine_family = LagrangeElementFamily::<f64>::new(1, Continuity::Discontinuous);
@@ -516,7 +516,7 @@ mod test {
     #[test]
     fn test_lagrange_integral() {
         //! Test that integral(v) is the same for Lagrange and barycentric Lagrange
-        let grid = shapes::regular_sphere::<f64>(2);
+        let grid = shapes::regular_sphere::<f64>(2, ReferenceCellType::Triangle);
         let rgrid = RefinedGrid::new(&grid);
 
         let family = LagrangeElementFamily::<f64>::new(1, Continuity::Standard);
