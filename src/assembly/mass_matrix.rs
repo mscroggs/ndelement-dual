@@ -20,16 +20,17 @@ pub fn assemble_dual<
     T: Scalar,
     G: Grid<T = TGeo, EntityDescriptor = ReferenceCellType>,
     FineG: Grid<T = TGeo, EntityDescriptor = ReferenceCellType>,
-    M: Map,
+    TestM: Map,
+    TrialM: Map,
     TestF: FunctionSpace<
             Grid = FineG,
             EntityDescriptor = ReferenceCellType,
-            FiniteElement = CiarletElement<T, M, TGeo>,
+            FiniteElement = CiarletElement<T, TestM, TGeo>,
         >,
     TrialF: FunctionSpace<
             Grid = FineG,
             EntityDescriptor = ReferenceCellType,
-            FiniteElement = CiarletElement<T, M, TGeo>,
+            FiniteElement = CiarletElement<T, TrialM, TGeo>,
         >,
 >(
     test_space: &DualSpace<'a, TGeo, T, G, FineG, TestF>,
@@ -171,18 +172,48 @@ pub fn assemble<
 
         let gmap = test_space
             .grid()
-            .geometry_map(*ct, geometry_degree, points.data().unwrap());
+            .geometry_map(*ct, geometry_degree, &points);
 
-        let mut jacobians =
-            vec![
-                TGeo::zero();
-                test_space.grid().geometry_dim() * test_space.grid().topology_dim() * npts
-            ];
+        let mut jacobians = rlst_dynamic_array!(
+            TGeo,
+            [
+                test_space.grid().geometry_dim(),
+                test_space.grid().topology_dim(),
+                npts
+            ]
+        );
+        let mut jinv = rlst_dynamic_array!(
+            TGeo,
+            [
+                test_space.grid().topology_dim(),
+                test_space.grid().geometry_dim(),
+                npts
+            ]
+        );
         let mut jdets = vec![TGeo::zero(); npts];
-        let mut normals = vec![TGeo::zero(); test_space.grid().geometry_dim() * npts];
+        let mut normals = rlst_dynamic_array!(TGeo, [test_space.grid().geometry_dim(), npts]);
 
         let mut local_matrix =
             rlst_dynamic_array!(T, [test_table.shape()[2], trial_table.shape()[2]]);
+
+        let mut test_physical_values = rlst_dynamic_array!(
+            T,
+            [
+                test_table.shape()[0],
+                test_table.shape()[1],
+                test_table.shape()[2],
+                test_e.physical_value_size(test_space.grid().geometry_dim())
+            ]
+        );
+        let mut trial_physical_values = rlst_dynamic_array!(
+            T,
+            [
+                trial_table.shape()[0],
+                trial_table.shape()[1],
+                trial_table.shape()[2],
+                trial_e.physical_value_size(trial_space.grid().geometry_dim())
+            ]
+        );
 
         for cell in test_space.grid().entity_iter(*ct) {
             let test_dofs = test_space
@@ -191,24 +222,43 @@ pub fn assemble<
             let trial_dofs = trial_space
                 .entity_closure_dofs(*ct, cell.local_index())
                 .unwrap();
-            gmap.jacobians_dets_normals(
+            gmap.jacobians_inverses_dets_normals(
                 cell.local_index(),
                 &mut jacobians,
+                &mut jinv,
                 &mut jdets,
                 &mut normals,
             );
+
+            test_e.push_forward(
+                &test_table,
+                0,
+                &jacobians,
+                &jdets,
+                &jinv,
+                &mut test_physical_values,
+            );
+            trial_e.push_forward(
+                &trial_table,
+                0,
+                &jacobians,
+                &jdets,
+                &jinv,
+                &mut trial_physical_values,
+            );
+
             for (test_i, _test_dof) in test_dofs.iter().enumerate() {
                 for (trial_i, _trial_dof) in trial_dofs.iter().enumerate() {
                     *local_matrix.get_mut([test_i, trial_i]).unwrap() = weights
                         .iter()
                         .enumerate()
                         .map(|(i, w)| {
-                            (0..test_table.shape()[3])
+                            (0..test_physical_values.shape()[3])
                                 .map(|j| {
                                     T::from(jdets[i]).unwrap()
                                         * *w
-                                        * *test_table.get([0, i, test_i, j]).unwrap()
-                                        * *trial_table.get([0, i, trial_i, j]).unwrap()
+                                        * *test_physical_values.get([0, i, test_i, j]).unwrap()
+                                        * *trial_physical_values.get([0, i, trial_i, j]).unwrap()
                                 })
                                 .sum()
                         })
@@ -239,6 +289,7 @@ pub fn assemble<
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::{RefinedGrid, barycentric_representation_coefficients, bc_coefficients};
     use approx::*;
     use ndelement::{
         ciarlet::{
@@ -255,17 +306,10 @@ mod test {
 
     #[test]
     fn test_lagrange_assembly() {
-        let grid = shapes::regular_sphere::<f64>(0);
+        let grid = shapes::regular_sphere::<f64>(0, ReferenceCellType::Triangle);
         let family = LagrangeElementFamily::<f64>::new(1, Continuity::Standard);
         let space = FunctionSpaceImpl::new(&grid, &family);
         let result = assemble(&space, &space);
-
-        for i in 0..6 {
-            for j in 0..6 {
-                print!("{} ", result[[i, j]]);
-            }
-            println!();
-        }
 
         for i in 0..6 {
             assert_relative_eq!(result[[i, i]], 0.5773502691896255, epsilon = 1e-10);
@@ -308,7 +352,7 @@ mod test {
 
     #[test]
     fn test_rt_nc_assembly() {
-        let grid = shapes::regular_sphere::<f64>(0);
+        let grid = shapes::regular_sphere::<f64>(0, ReferenceCellType::Triangle);
         let rt = RaviartThomasElementFamily::<f64>::new(1, Continuity::Standard);
         let nc = NedelecFirstKindElementFamily::<f64>::new(1, Continuity::Standard);
         let rt_space = FunctionSpaceImpl::new(&grid, &rt);
@@ -318,11 +362,7 @@ mod test {
         for i in 0..6 {
             for j in 0..6 {
                 if result[[i, j]].abs() > 0.001 {
-                    assert_relative_eq!(
-                        result[[i, j]].abs(),
-                        f64::sqrt(3.0) / 6.0,
-                        epsilon = 1e-10
-                    );
+                    assert_relative_eq!(result[[i, j]].abs(), 1.0 / 6.0, epsilon = 1e-10);
                 }
             }
         }
@@ -384,6 +424,173 @@ mod test {
                     result2[[i, j]].abs(),
                     epsilon = 1e-10
                 );
+            }
+        }
+    }
+
+    #[test]
+    fn test_rt_assembly() {
+        let grid = shapes::regular_sphere::<f64>(0, ReferenceCellType::Triangle);
+
+        let rt = RaviartThomasElementFamily::<f64>::new(1, Continuity::Standard);
+        let rt_space = FunctionSpaceImpl::new(&grid, &rt);
+
+        let result = assemble(&rt_space, &rt_space);
+
+        for i in 0..12 {
+            assert_relative_eq!(result[[i, i]], 0.9622504486493761 / 2.0, epsilon = 1e-10);
+        }
+        for i in 0..12 {
+            for j in 0..12 {
+                if i != j && result[[i, j]].abs() > 0.001 {
+                    assert_relative_eq!(
+                        result[[i, j]].abs(),
+                        0.09622504486493758 / 2.0,
+                        epsilon = 1e-10
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_bc_assembly() {
+        let grid = shapes::regular_sphere::<f64>(0, ReferenceCellType::Triangle);
+        let rgrid = RefinedGrid::new(&grid);
+
+        let rt = RaviartThomasElementFamily::<f64>::new(1, Continuity::Standard);
+        let fine_rt_space = FunctionSpaceImpl::new(rgrid.fine_grid(), &rt);
+        let bc_space = DualSpace::new(
+            &rgrid,
+            &fine_rt_space,
+            bc_coefficients(&rgrid, &fine_rt_space, Continuity::Standard),
+        );
+
+        let result = assemble_dual(&bc_space, &bc_space);
+
+        for i in 0..12 {
+            assert_relative_eq!(result[[i, i]], 0.9141379262169064, epsilon = 1e-10);
+        }
+        for i in 0..12 {
+            for j in 0..12 {
+                if i != j {
+                    if result[[i, j]].abs() > 0.1 {
+                        assert_relative_eq!(
+                            result[[i, j]].abs(),
+                            0.12028130608117193,
+                            epsilon = 1e-10
+                        );
+                    } else if result[[i, j]].abs() > 0.001 {
+                        assert_relative_eq!(
+                            result[[i, j]].abs(),
+                            0.048112522432468816,
+                            epsilon = 1e-10
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_rt_bc_assembly() {
+        let grid = shapes::regular_sphere::<f64>(0, ReferenceCellType::Triangle);
+        let rgrid = RefinedGrid::new(&grid);
+
+        let rt = RaviartThomasElementFamily::<f64>::new(1, Continuity::Standard);
+        let coarse_rt_space = FunctionSpaceImpl::new(rgrid.coarse_grid(), &rt);
+        let fine_rt_space = FunctionSpaceImpl::new(rgrid.fine_grid(), &rt);
+        let rt_space = DualSpace::new(
+            &rgrid,
+            &fine_rt_space,
+            barycentric_representation_coefficients(&rgrid, &coarse_rt_space, &fine_rt_space),
+        );
+        let bc_space = DualSpace::new(
+            &rgrid,
+            &fine_rt_space,
+            bc_coefficients(&rgrid, &fine_rt_space, Continuity::Standard),
+        );
+
+        let result = assemble_dual(&rt_space, &bc_space);
+
+        for i in 0..12 {
+            assert_relative_eq!(result[[i, i]], 0.0, epsilon = 1e-10);
+        }
+        for i in 0..12 {
+            for j in 0..12 {
+                if i != j {
+                    if result[[i, j]].abs() > 0.1 {
+                        assert_relative_eq!(
+                            result[[i, j]].abs(),
+                            0.294845987557234 / f64::sqrt(2.0),
+                            epsilon = 1e-10
+                        );
+                    } else if result[[i, j]].abs() > 0.001 {
+                        assert_relative_eq!(
+                            result[[i, j]].abs(),
+                            0.011340230290662836 / f64::sqrt(2.0),
+                            epsilon = 1e-10
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_rt_rbc_assembly() {
+        let grid = shapes::regular_sphere::<f64>(0, ReferenceCellType::Triangle);
+        let rgrid = RefinedGrid::new(&grid);
+
+        let rt = RaviartThomasElementFamily::<f64>::new(1, Continuity::Standard);
+        let coarse_rt_space = FunctionSpaceImpl::new(rgrid.coarse_grid(), &rt);
+        let fine_rt_space = FunctionSpaceImpl::new(rgrid.fine_grid(), &rt);
+        let rt_space = DualSpace::new(
+            &rgrid,
+            &fine_rt_space,
+            barycentric_representation_coefficients(&rgrid, &coarse_rt_space, &fine_rt_space),
+        );
+
+        let nc = NedelecFirstKindElementFamily::<f64>::new(1, Continuity::Standard);
+        let fine_nc_space = FunctionSpaceImpl::new(rgrid.fine_grid(), &nc);
+        let rbc_space = DualSpace::new(
+            &rgrid,
+            &fine_nc_space,
+            bc_coefficients(&rgrid, &fine_nc_space, Continuity::Standard),
+        );
+
+        let result = assemble_dual(&rt_space, &rbc_space);
+
+        for i in 0..12 {
+            assert_relative_eq!(
+                result[[i, i]].abs(),
+                0.7463904912524658 / f64::sqrt(2.0),
+                epsilon = 1e-10
+            );
+        }
+        for i in 0..12 {
+            for j in 0..12 {
+                if i != j {
+                    if result[[i, j]].abs() > 0.05 {
+                        assert_relative_eq!(
+                            result[[i, j]].abs(),
+                            0.09820927516479813 / f64::sqrt(2.0),
+                            epsilon = 1e-10
+                        );
+                    } else if result[[i, j]].abs() > 0.025 {
+                        assert_relative_eq!(
+                            result[[i, j]].abs(),
+                            0.03928371006591926 / f64::sqrt(2.0),
+                            epsilon = 1e-10
+                        );
+                    } else if result[[i, j]].abs() > 0.001 {
+                        assert_relative_eq!(
+                            result[[i, j]].abs(),
+                            0.019641855032959628 / f64::sqrt(2.0),
+                            epsilon = 1e-10
+                        );
+                    }
+                }
             }
         }
     }
