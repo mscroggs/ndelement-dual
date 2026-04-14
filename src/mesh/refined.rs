@@ -1,22 +1,22 @@
-//! Refined grid
+//! Refined mesh
 use itertools::izip;
 use ndelement::{ciarlet::CiarletElement, map::IdentityMap, types::ReferenceCellType};
-use ndgrid::{
-    SingleElementGrid, SingleElementGridBuilder,
-    traits::{Builder, Entity, Geometry, Grid, Point, Topology},
+use ndmesh::{
+    SingleElementMesh, SingleElementMeshBuilder,
+    traits::{Builder, Entity, Geometry, Mesh, Point, Topology},
     types::Scalar,
 };
 use std::collections::HashMap;
 
-/// A grid and its barcentric refinement
-pub struct RefinedGrid<
+/// A mesh and its barcentric refinement
+pub struct RefinedMesh<
     'a,
     T: Scalar,
-    G: Grid<T = T, EntityDescriptor = ReferenceCellType>,
-    FineG: Grid<T = T, EntityDescriptor = ReferenceCellType>,
+    G: Mesh<T = T, EntityDescriptor = ReferenceCellType>,
+    FineG: Mesh<T = T, EntityDescriptor = ReferenceCellType>,
 > {
-    grid: &'a G,
-    bgrid: FineG,
+    mesh: &'a G,
+    bmesh: FineG,
     child_map: Vec<Vec<usize>>,
     parent_map: Vec<(usize, usize)>,
     fine_vertices: HashMap<ReferenceCellType, Vec<usize>>,
@@ -26,87 +26,87 @@ pub struct RefinedGrid<
 impl<
     'a,
     T: Scalar,
-    G: Grid<T = T, EntityDescriptor = ReferenceCellType>,
-    FineG: Grid<T = T, EntityDescriptor = ReferenceCellType>,
-> RefinedGrid<'a, T, G, FineG>
+    G: Mesh<T = T, EntityDescriptor = ReferenceCellType>,
+    FineG: Mesh<T = T, EntityDescriptor = ReferenceCellType>,
+> RefinedMesh<'a, T, G, FineG>
 {
-    /// Coarse unrefined grid
-    pub fn coarse_grid(&self) -> &'a G {
-        self.grid
+    /// Coarse unrefined mesh
+    pub fn coarse_mesh(&self) -> &'a G {
+        self.mesh
     }
 
-    /// Barycentrically refined grid
-    pub fn fine_grid(&self) -> &FineG {
-        &self.bgrid
+    /// Barycentrically refined mesh
+    pub fn fine_mesh(&self) -> &FineG {
+        &self.bmesh
     }
 
-    /// Indices of cells in fine grid that make up a coarse cell
+    /// Indices of cells in fine mesh that make up a coarse cell
     pub fn children(&self, coarse_cell_index: usize) -> &[usize] {
         &self.child_map[coarse_cell_index]
     }
 
-    /// Index of cell in coarse grid that contains a fine cell
+    /// Index of cell in coarse mesh that contains a fine cell
     pub fn parent(&self, fine_cell_index: usize) -> (usize, usize) {
         self.parent_map[fine_cell_index]
     }
 
-    /// Index of vertex in fine grid that is at the midpoint of an entity
+    /// Index of vertex in fine mesh that is at the midpoint of an entity
     pub fn fine_vertex(&self, entity_type: ReferenceCellType, entity_index: usize) -> usize {
         self.fine_vertices[&entity_type][entity_index]
     }
 
-    /// Index of vertex in coarse grid that coincides with fine grid vertex,
+    /// Index of vertex in coarse mesh that coincides with fine mesh vertex,
     /// or None if there is no such vertex
     pub fn coarse_vertex(&self, fine_vertex_index: usize) -> Option<usize> {
         self.coarse_vertices[fine_vertex_index]
     }
 }
 
-impl<'a, T: Scalar, G: Grid<T = T, EntityDescriptor = ReferenceCellType>>
-    RefinedGrid<'a, T, G, SingleElementGrid<T, CiarletElement<T, IdentityMap, T>>>
+impl<'a, T: Scalar, G: Mesh<T = T, EntityDescriptor = ReferenceCellType>>
+    RefinedMesh<'a, T, G, SingleElementMesh<T, CiarletElement<T, IdentityMap, T>>>
 {
-    /// Barycentrically refine a grid
-    pub fn new(grid: &'a G) -> Self {
-        if grid.topology_dim() != 2 {
+    /// Barycentrically refine a mesh
+    pub fn new(mesh: &'a G) -> Self {
+        if mesh.topology_dim() != 2 {
             panic!(
-                "Barycentric refinement only implemented for grids with topological dimension 2."
+                "Barycentric refinement only implemented for meshes with topological dimension 2."
             );
         }
 
-        let nv = grid.entity_count(ReferenceCellType::Point);
+        let nv = mesh.entity_count(ReferenceCellType::Point);
 
         // TODO: what if element degree > 1
-        let mut b = SingleElementGridBuilder::<T>::new(
-            grid.geometry_dim(),
+        let mut b = SingleElementMeshBuilder::<T>::new(
+            mesh.geometry_dim(),
             (ReferenceCellType::Triangle, 1),
         );
 
         let mut child_map = vec![];
         let mut parent_map = vec![];
-        for _ in 0..grid.cell_count() {
+        for _ in 0..mesh.cell_count() {
             child_map.push(vec![]);
         }
 
         let mut fine_vertices = HashMap::new();
-        for d in 0..=grid.topology_dim() {
-            for etype in grid.entity_types(d) {
-                fine_vertices.insert(*etype, vec![0; grid.entity_count(*etype)]);
+        for d in 0..=mesh.topology_dim() {
+            for etype in mesh.entity_types(d) {
+                fine_vertices.insert(*etype, vec![0; mesh.entity_count(*etype)]);
             }
         }
         let mut coarse_vertices = vec![];
 
         let mut vertex_i = 0;
-        let mut p = vec![T::zero(); grid.geometry_dim()];
-        for v in grid.entity_iter(ReferenceCellType::Point) {
+        let mut p = vec![T::zero(); mesh.geometry_dim()];
+        for v in mesh.entity_iter(ReferenceCellType::Point) {
             v.geometry().points().next().unwrap().coords(&mut p);
             b.add_point(vertex_i, &p);
             fine_vertices.get_mut(&ReferenceCellType::Point).unwrap()[v.local_index()] = vertex_i;
             coarse_vertices.push(Some(v.local_index()));
             vertex_i += 1;
         }
-        let mut q = vec![T::zero(); grid.geometry_dim()];
-        let mut r = vec![T::zero(); grid.geometry_dim()];
-        for e in grid.entity_iter(ReferenceCellType::Interval) {
+        let mut q = vec![T::zero(); mesh.geometry_dim()];
+        let mut r = vec![T::zero(); mesh.geometry_dim()];
+        for e in mesh.entity_iter(ReferenceCellType::Interval) {
             let g = e.geometry();
             let mut pts = g.points();
             pts.next().unwrap().coords(&mut p);
@@ -121,8 +121,8 @@ impl<'a, T: Scalar, G: Grid<T = T, EntityDescriptor = ReferenceCellType>>
             vertex_i += 1;
         }
 
-        let mut s = vec![T::zero(); grid.geometry_dim()];
-        for (fi, f) in grid.entity_iter(ReferenceCellType::Triangle).enumerate() {
+        let mut s = vec![T::zero(); mesh.geometry_dim()];
+        for (fi, f) in mesh.entity_iter(ReferenceCellType::Triangle).enumerate() {
             let g = f.geometry();
             let mut pts = g.points();
             pts.next().unwrap().coords(&mut p);
@@ -156,7 +156,7 @@ impl<'a, T: Scalar, G: Grid<T = T, EntityDescriptor = ReferenceCellType>>
             vertex_i += 1;
         }
 
-        for (fi, f) in grid
+        for (fi, f) in mesh
             .entity_iter(ReferenceCellType::Quadrilateral)
             .enumerate()
         {
@@ -199,8 +199,8 @@ impl<'a, T: Scalar, G: Grid<T = T, EntityDescriptor = ReferenceCellType>>
         }
 
         Self {
-            grid,
-            bgrid: b.create_grid(),
+            mesh,
+            bmesh: b.create_mesh(),
             child_map,
             parent_map,
             coarse_vertices,
@@ -212,21 +212,21 @@ impl<'a, T: Scalar, G: Grid<T = T, EntityDescriptor = ReferenceCellType>>
 #[cfg(test)]
 mod test {
     use super::*;
-    use ndgrid::shapes::unit_cube_boundary;
+    use ndmesh::shapes::unit_cube_boundary;
 
     #[test]
     fn test_refine_triangle() {
-        let grid = unit_cube_boundary::<f64>(2, 2, 2, ReferenceCellType::Triangle);
-        let bgrid = RefinedGrid::new(&grid);
-        assert_eq!(grid.cell_count(), bgrid.coarse_grid().cell_count());
-        assert_eq!(grid.cell_count() * 6, bgrid.fine_grid().cell_count());
+        let mesh = unit_cube_boundary::<f64>(2, 2, 2, ReferenceCellType::Triangle);
+        let bmesh = RefinedMesh::new(&mesh);
+        assert_eq!(mesh.cell_count(), bmesh.coarse_mesh().cell_count());
+        assert_eq!(mesh.cell_count() * 6, bmesh.fine_mesh().cell_count());
     }
 
     #[test]
     fn test_refine_quadrilateral() {
-        let grid = unit_cube_boundary::<f64>(2, 2, 2, ReferenceCellType::Quadrilateral);
-        let bgrid = RefinedGrid::new(&grid);
-        assert_eq!(grid.cell_count(), bgrid.coarse_grid().cell_count());
-        assert_eq!(grid.cell_count() * 8, bgrid.fine_grid().cell_count());
+        let mesh = unit_cube_boundary::<f64>(2, 2, 2, ReferenceCellType::Quadrilateral);
+        let bmesh = RefinedMesh::new(&mesh);
+        assert_eq!(mesh.cell_count(), bmesh.coarse_mesh().cell_count());
+        assert_eq!(mesh.cell_count() * 8, bmesh.fine_mesh().cell_count());
     }
 }

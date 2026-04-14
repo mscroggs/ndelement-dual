@@ -1,5 +1,5 @@
 //! Representing a space in terms of a barycentric space
-use crate::RefinedGrid;
+use crate::RefinedMesh;
 use itertools::izip;
 use ndelement::{
     ciarlet::CiarletElement,
@@ -7,8 +7,8 @@ use ndelement::{
     types::ReferenceCellType,
 };
 use ndfunctionspace::traits::FunctionSpace;
-use ndgrid::{
-    traits::{Entity, Geometry, GeometryMap, Grid, Topology},
+use ndmesh::{
+    traits::{Entity, Geometry, GeometryMap, Mesh, Topology},
     types::Scalar,
 };
 use rlst::{DynArray, RlstScalar, rlst_dynamic_array};
@@ -20,29 +20,29 @@ pub fn coefficients<
     'a,
     TGeo: Scalar,
     T: Scalar,
-    G: Grid<T = TGeo, EntityDescriptor = ReferenceCellType>,
-    FineG: Grid<T = TGeo, EntityDescriptor = ReferenceCellType>,
+    G: Mesh<T = TGeo, EntityDescriptor = ReferenceCellType>,
+    FineG: Mesh<T = TGeo, EntityDescriptor = ReferenceCellType>,
     M: Map,
 >(
-    grid: &'a RefinedGrid<'a, TGeo, G, FineG>,
+    mesh: &'a RefinedMesh<'a, TGeo, G, FineG>,
     coarse_space: &impl FunctionSpace<
         EntityDescriptor = ReferenceCellType,
-        Grid = G,
+        Mesh = G,
         FiniteElement = CiarletElement<T, M, TGeo>,
     >,
     fine_space: &impl FunctionSpace<
         EntityDescriptor = ReferenceCellType,
-        Grid = FineG,
+        Mesh = FineG,
         FiniteElement = CiarletElement<T, M, TGeo>,
     >,
 ) -> Vec<HashMap<usize, T>> {
     assert_eq!(
-        grid.coarse_grid() as *const G,
-        coarse_space.grid() as *const G
+        mesh.coarse_mesh() as *const G,
+        coarse_space.mesh() as *const G
     );
     assert_eq!(
-        grid.fine_grid() as *const FineG,
-        fine_space.grid() as *const FineG
+        mesh.fine_mesh() as *const FineG,
+        fine_space.mesh() as *const FineG
     );
 
     let mut coefficients = vec![HashMap::new(); coarse_space.local_size()];
@@ -50,7 +50,7 @@ pub fn coefficients<
     assert_eq!(fine_space.elements().len(), 1);
     let fine_e = &fine_space.elements()[0];
 
-    for ct in grid.coarse_grid().cell_types() {
+    for ct in mesh.coarse_mesh().cell_types() {
         let child_to_parent_maps = match ct {
             ReferenceCellType::Triangle => vec![
                 |x: &[TGeo]| {
@@ -171,15 +171,15 @@ pub fn coefficients<
         let coarse_ndofs = coarse_e.dim();
         let mut cell_coeffs = vec![T::zero(); coarse_ndofs * fine_ndofs];
 
-        for cell in grid.coarse_grid().entity_iter(*ct) {
+        for cell in mesh.coarse_mesh().entity_iter(*ct) {
             let coarse_cell_dofs = coarse_space
                 .entity_closure_dofs(*ct, cell.local_index())
                 .unwrap();
             for (fine_cell_index, map) in
-                izip!(grid.children(cell.local_index()), &child_to_parent_maps)
+                izip!(mesh.children(cell.local_index()), &child_to_parent_maps)
             {
-                let fine_cell = grid
-                    .fine_grid()
+                let fine_cell = mesh
+                    .fine_mesh()
                     .entity(fine_e.cell_type(), *fine_cell_index)
                     .unwrap();
                 let fine_cell_dofs = fine_space
@@ -214,9 +214,9 @@ pub fn coefficients<
                             coarse_e.tabulate(&mapped_pts, 0, &mut table);
 
                             let coarse_gmap =
-                                grid.coarse_grid()
+                                mesh.coarse_mesh()
                                     .geometry_map(*ct, cell.geometry().degree(), pts);
-                            let fine_gmap = grid.fine_grid().geometry_map(
+                            let fine_gmap = mesh.fine_mesh().geometry_map(
                                 fine_e.cell_type(),
                                 fine_cell.geometry().degree(),
                                 &mapped_pts,
@@ -226,16 +226,16 @@ pub fn coefficients<
                             let mut jacobians = rlst_dynamic_array!(
                                 TGeo,
                                 [
-                                    grid.coarse_grid().geometry_dim(),
-                                    grid.coarse_grid().topology_dim(),
+                                    mesh.coarse_mesh().geometry_dim(),
+                                    mesh.coarse_mesh().topology_dim(),
                                     npts
                                 ]
                             );
                             let mut jinv = rlst_dynamic_array!(
                                 TGeo,
                                 [
-                                    grid.coarse_grid().topology_dim(),
-                                    grid.coarse_grid().geometry_dim(),
+                                    mesh.coarse_mesh().topology_dim(),
+                                    mesh.coarse_mesh().geometry_dim(),
                                     npts
                                 ]
                             );
@@ -344,12 +344,12 @@ mod test {
     use crate::{DualSpace, assemble_mass_matrix, assemble_mass_matrix_dual};
     use approx::*;
     use ndelement::{
-        ciarlet::{LagrangeElementFamily, RaviartThomasElementFamily},
+        ciarlet::{LagrangeElementFamily, LagrangeVariant, RaviartThomasElementFamily},
         traits::{ElementFamily, MappedFiniteElement},
         types::Continuity,
     };
     use ndfunctionspace::FunctionSpaceImpl;
-    use ndgrid::{
+    use ndmesh::{
         shapes,
         traits::{GeometryMap, Topology},
     };
@@ -358,14 +358,15 @@ mod test {
 
     #[test]
     fn test_lagrange_triangles() {
-        let grid = shapes::regular_sphere::<f64>(1, ReferenceCellType::Triangle);
-        let rgrid = RefinedGrid::new(&grid);
-        let family = LagrangeElementFamily::<f64>::new(1, Continuity::Standard);
-        let space = FunctionSpaceImpl::new(&grid, &family);
-        let fine_space = FunctionSpaceImpl::new(rgrid.fine_grid(), &family);
+        let mesh = shapes::regular_sphere::<f64>(1, ReferenceCellType::Triangle);
+        let rmesh = RefinedMesh::new(&mesh);
+        let family =
+            LagrangeElementFamily::<f64>::new(1, Continuity::Standard, LagrangeVariant::Equispaced);
+        let space = FunctionSpaceImpl::new(&mesh, &family);
+        let fine_space = FunctionSpaceImpl::new(rmesh.fine_mesh(), &family);
 
-        let coefficients = coefficients(&rgrid, &space, &fine_space);
-        let bary_space = DualSpace::new(&rgrid, &fine_space, coefficients);
+        let coefficients = coefficients(&rmesh, &space, &fine_space);
+        let bary_space = DualSpace::new(&rmesh, &fine_space, coefficients);
 
         let result = assemble_mass_matrix(&space, &space);
         let bary_result = assemble_mass_matrix_dual(&bary_space, &bary_space);
@@ -379,15 +380,17 @@ mod test {
 
     #[test]
     fn test_lagrange_triangles_mixed_degree() {
-        let grid = shapes::regular_sphere::<f64>(1, ReferenceCellType::Triangle);
-        let rgrid = RefinedGrid::new(&grid);
-        let family = LagrangeElementFamily::<f64>::new(1, Continuity::Standard);
-        let fine_family = LagrangeElementFamily::<f64>::new(2, Continuity::Standard);
-        let space = FunctionSpaceImpl::new(&grid, &family);
-        let fine_space = FunctionSpaceImpl::new(rgrid.fine_grid(), &fine_family);
+        let mesh = shapes::regular_sphere::<f64>(1, ReferenceCellType::Triangle);
+        let rmesh = RefinedMesh::new(&mesh);
+        let family =
+            LagrangeElementFamily::<f64>::new(1, Continuity::Standard, LagrangeVariant::Equispaced);
+        let fine_family =
+            LagrangeElementFamily::<f64>::new(2, Continuity::Standard, LagrangeVariant::Equispaced);
+        let space = FunctionSpaceImpl::new(&mesh, &family);
+        let fine_space = FunctionSpaceImpl::new(rmesh.fine_mesh(), &fine_family);
 
-        let coefficients = coefficients(&rgrid, &space, &fine_space);
-        let bary_space = DualSpace::new(&rgrid, &fine_space, coefficients);
+        let coefficients = coefficients(&rmesh, &space, &fine_space);
+        let bary_space = DualSpace::new(&rmesh, &fine_space, coefficients);
 
         let result = assemble_mass_matrix(&space, &space);
         let bary_result = assemble_mass_matrix_dual(&bary_space, &bary_space);
@@ -401,15 +404,20 @@ mod test {
 
     #[test]
     fn test_lagrange_triangles_mixed_continuity() {
-        let grid = shapes::regular_sphere::<f64>(1, ReferenceCellType::Triangle);
-        let rgrid = RefinedGrid::new(&grid);
-        let family = LagrangeElementFamily::<f64>::new(1, Continuity::Standard);
-        let fine_family = LagrangeElementFamily::<f64>::new(1, Continuity::Discontinuous);
-        let space = FunctionSpaceImpl::new(&grid, &family);
-        let fine_space = FunctionSpaceImpl::new(rgrid.fine_grid(), &fine_family);
+        let mesh = shapes::regular_sphere::<f64>(1, ReferenceCellType::Triangle);
+        let rmesh = RefinedMesh::new(&mesh);
+        let family =
+            LagrangeElementFamily::<f64>::new(1, Continuity::Standard, LagrangeVariant::Equispaced);
+        let fine_family = LagrangeElementFamily::<f64>::new(
+            1,
+            Continuity::Discontinuous,
+            LagrangeVariant::Equispaced,
+        );
+        let space = FunctionSpaceImpl::new(&mesh, &family);
+        let fine_space = FunctionSpaceImpl::new(rmesh.fine_mesh(), &fine_family);
 
-        let coefficients = coefficients(&rgrid, &space, &fine_space);
-        let bary_space = DualSpace::new(&rgrid, &fine_space, coefficients);
+        let coefficients = coefficients(&rmesh, &space, &fine_space);
+        let bary_space = DualSpace::new(&rmesh, &fine_space, coefficients);
 
         let result = assemble_mass_matrix(&space, &space);
         let bary_result = assemble_mass_matrix_dual(&bary_space, &bary_space);
@@ -423,15 +431,17 @@ mod test {
 
     #[test]
     fn test_lagrange_quads() {
-        let grid = shapes::screen::<f64>(1, ReferenceCellType::Quadrilateral);
-        let rgrid = RefinedGrid::new(&grid);
+        let mesh = shapes::screen::<f64>(1, ReferenceCellType::Quadrilateral);
+        let rmesh = RefinedMesh::new(&mesh);
 
-        let family = LagrangeElementFamily::<f64>::new(1, Continuity::Standard);
-        let fine_family = LagrangeElementFamily::<f64>::new(2, Continuity::Standard);
-        let space = FunctionSpaceImpl::new(&grid, &family);
-        let fine_space = FunctionSpaceImpl::new(rgrid.fine_grid(), &fine_family);
+        let family =
+            LagrangeElementFamily::<f64>::new(1, Continuity::Standard, LagrangeVariant::Equispaced);
+        let fine_family =
+            LagrangeElementFamily::<f64>::new(2, Continuity::Standard, LagrangeVariant::Equispaced);
+        let space = FunctionSpaceImpl::new(&mesh, &family);
+        let fine_space = FunctionSpaceImpl::new(rmesh.fine_mesh(), &fine_family);
 
-        let coefficients = coefficients(&rgrid, &space, &fine_space);
+        let coefficients = coefficients(&rmesh, &space, &fine_space);
 
         assert_relative_eq!(coefficients[0][&0], 1.0);
         assert_relative_eq!(coefficients[0][&24], 3.0 / 4.0);
@@ -501,7 +511,7 @@ mod test {
         assert_relative_eq!(coefficients[3][&22], 1.0 / 8.0);
         assert_relative_eq!(coefficients[3][&4], 1.0 / 16.0);
 
-        let bary_space = DualSpace::new(&rgrid, &fine_space, coefficients);
+        let bary_space = DualSpace::new(&rmesh, &fine_space, coefficients);
 
         let result = assemble_mass_matrix(&space, &space);
         let bary_result = assemble_mass_matrix_dual(&bary_space, &bary_space);
@@ -516,15 +526,16 @@ mod test {
     #[test]
     fn test_lagrange_integral() {
         //! Test that integral(v) is the same for Lagrange and barycentric Lagrange
-        let grid = shapes::regular_sphere::<f64>(2, ReferenceCellType::Triangle);
-        let rgrid = RefinedGrid::new(&grid);
+        let mesh = shapes::regular_sphere::<f64>(2, ReferenceCellType::Triangle);
+        let rmesh = RefinedMesh::new(&mesh);
 
-        let family = LagrangeElementFamily::<f64>::new(1, Continuity::Standard);
+        let family =
+            LagrangeElementFamily::<f64>::new(1, Continuity::Standard, LagrangeVariant::Equispaced);
 
-        let coarse_space = FunctionSpaceImpl::new(&grid, &family);
-        let fine_space = FunctionSpaceImpl::new(rgrid.fine_grid(), &family);
+        let coarse_space = FunctionSpaceImpl::new(&mesh, &family);
+        let fine_space = FunctionSpaceImpl::new(rmesh.fine_mesh(), &family);
 
-        let coefficients = coefficients(&rgrid, &coarse_space, &fine_space);
+        let coefficients = coefficients(&rmesh, &coarse_space, &fine_space);
 
         let (p, w) =
             single_integral_quadrature(QuadratureRule::XiaoGimbutas, Domain::Triangle, 2).unwrap();
@@ -547,8 +558,8 @@ mod test {
         let mut jdets = vec![0.0; npts];
 
         let mut coarse_result = vec![0.0; coarse_space.local_size()];
-        let gmap = grid.geometry_map(ReferenceCellType::Triangle, 1, &pts);
-        for cell in grid.entity_iter(ReferenceCellType::Triangle) {
+        let gmap = mesh.geometry_map(ReferenceCellType::Triangle, 1, &pts);
+        for cell in mesh.entity_iter(ReferenceCellType::Triangle) {
             let dofs = coarse_space
                 .entity_closure_dofs(ReferenceCellType::Triangle, cell.local_index())
                 .unwrap();
@@ -562,11 +573,11 @@ mod test {
             }
         }
 
-        let fine_grid = rgrid.fine_grid();
+        let fine_mesh = rmesh.fine_mesh();
 
         let mut fine_result = vec![0.0; fine_space.local_size()];
-        let gmap = fine_grid.geometry_map(ReferenceCellType::Triangle, 1, &pts);
-        for cell in fine_grid.entity_iter(ReferenceCellType::Triangle) {
+        let gmap = fine_mesh.geometry_map(ReferenceCellType::Triangle, 1, &pts);
+        for cell in fine_mesh.entity_iter(ReferenceCellType::Triangle) {
             let dofs = fine_space
                 .entity_closure_dofs(ReferenceCellType::Triangle, cell.local_index())
                 .unwrap();
@@ -593,15 +604,15 @@ mod test {
     #[test]
     fn test_rt_integral() {
         //! Test that integral(v[0]) is the same for RT and barycentric RT
-        let grid = shapes::screen::<f64>(1, ReferenceCellType::Triangle);
-        let rgrid = RefinedGrid::new(&grid);
+        let mesh = shapes::screen::<f64>(1, ReferenceCellType::Triangle);
+        let rmesh = RefinedMesh::new(&mesh);
 
         let family = RaviartThomasElementFamily::<f64>::new(1, Continuity::Standard);
 
-        let coarse_space = FunctionSpaceImpl::new(&grid, &family);
-        let fine_space = FunctionSpaceImpl::new(rgrid.fine_grid(), &family);
+        let coarse_space = FunctionSpaceImpl::new(&mesh, &family);
+        let fine_space = FunctionSpaceImpl::new(rmesh.fine_mesh(), &family);
 
-        let coefficients = coefficients(&rgrid, &coarse_space, &fine_space);
+        let coefficients = coefficients(&rmesh, &coarse_space, &fine_space);
 
         let (p, w) =
             single_integral_quadrature(QuadratureRule::XiaoGimbutas, Domain::Triangle, 2).unwrap();
@@ -636,8 +647,8 @@ mod test {
         let mut local_vector = vec![0.0; 3];
 
         let mut coarse_result = vec![0.0; coarse_space.local_size()];
-        let gmap = grid.geometry_map(ReferenceCellType::Triangle, 1, &pts);
-        for cell in grid.entity_iter(ReferenceCellType::Triangle) {
+        let gmap = mesh.geometry_map(ReferenceCellType::Triangle, 1, &pts);
+        for cell in mesh.entity_iter(ReferenceCellType::Triangle) {
             let dofs = coarse_space
                 .entity_closure_dofs(ReferenceCellType::Triangle, cell.local_index())
                 .unwrap();
@@ -659,11 +670,11 @@ mod test {
             }
         }
 
-        let fine_grid = rgrid.fine_grid();
+        let fine_mesh = rmesh.fine_mesh();
 
         let mut fine_result = vec![0.0; fine_space.local_size()];
-        let gmap = fine_grid.geometry_map(ReferenceCellType::Triangle, 1, &pts);
-        for cell in fine_grid.entity_iter(ReferenceCellType::Triangle) {
+        let gmap = fine_mesh.geometry_map(ReferenceCellType::Triangle, 1, &pts);
+        for cell in fine_mesh.entity_iter(ReferenceCellType::Triangle) {
             let dofs = fine_space
                 .entity_closure_dofs(ReferenceCellType::Triangle, cell.local_index())
                 .unwrap();
