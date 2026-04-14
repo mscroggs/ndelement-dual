@@ -4,8 +4,8 @@
 
 mod assembly;
 mod dual;
-mod grid;
+mod mesh;
 
 pub use assembly::{assemble_mass_matrix, assemble_mass_matrix_dual};
 pub use dual::{DualSpace, barycentric_representation_coefficients, bc_coefficients};
-pub use grid::{DualGrid, RefinedGrid};
+pub use mesh::{DualMesh, RefinedMesh};

@@ -4,24 +4,24 @@ use ndelement::{
 };
 use ndelement_dual::assemble_mass_matrix;
 use ndfunctionspace::FunctionSpaceImpl;
-use ndgrid::{shapes::regular_sphere, traits::Grid};
+use ndmesh::{shapes::regular_sphere, traits::Mesh};
 use rlst::SingularValueDecomposition;
 
 fn main() {
     for i in 0..4 {
-        let grid = regular_sphere::<f64>(i, ReferenceCellType::Triangle);
+        let mesh = regular_sphere::<f64>(i, ReferenceCellType::Triangle);
         let rt = RaviartThomasElementFamily::<f64>::new(1, Continuity::Standard);
         let nc = NedelecFirstKindElementFamily::<f64>::new(1, Continuity::Standard);
 
-        let rt_space = FunctionSpaceImpl::new(&grid, &rt);
-        let nc_space = FunctionSpaceImpl::new(&grid, &nc);
+        let rt_space = FunctionSpaceImpl::new(&mesh, &rt);
+        let nc_space = FunctionSpaceImpl::new(&mesh, &nc);
         let matrix = assemble_mass_matrix(&rt_space, &nc_space);
 
         let svals = matrix.singular_values().unwrap();
 
         println!(
             "Number of cells:  {}",
-            grid.entity_count(ReferenceCellType::Triangle)
+            mesh.entity_count(ReferenceCellType::Triangle)
         );
         println!(
             "Condition number: {}",

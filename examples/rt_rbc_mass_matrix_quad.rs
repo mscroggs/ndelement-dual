@@ -3,11 +3,11 @@ use ndelement::{
     types::{Continuity, ReferenceCellType},
 };
 use ndelement_dual::{
-    DualSpace, RefinedGrid, assemble_mass_matrix, assemble_mass_matrix_dual,
+    DualSpace, RefinedMesh, assemble_mass_matrix, assemble_mass_matrix_dual,
     barycentric_representation_coefficients, bc_coefficients,
 };
 use ndfunctionspace::FunctionSpaceImpl;
-use ndgrid::traits::Grid;
+use ndmesh::traits::Mesh;
 use rlst::SingularValueDecomposition;
 
 fn main() {
@@ -18,15 +18,15 @@ fn main() {
         ] {
             println!("{ct:?}");
             let n = usize::pow(2, i);
-            let grid = ndgrid::shapes::unit_cube_boundary::<f64>(n, n, n, ct);
-            println!("Number of cells:  {}", grid.entity_count(ct));
+            let mesh = ndmesh::shapes::unit_cube_boundary::<f64>(n, n, n, ct);
+            println!("Number of cells:  {}", mesh.entity_count(ct));
 
             let rt = RaviartThomasElementFamily::<f64>::new(1, Continuity::Standard);
             let nc = NedelecFirstKindElementFamily::<f64>::new(1, Continuity::Standard);
 
             // RT-NC
-            let rt_space = FunctionSpaceImpl::new(&grid, &rt);
-            let nc_space = FunctionSpaceImpl::new(&grid, &nc);
+            let rt_space = FunctionSpaceImpl::new(&mesh, &rt);
+            let nc_space = FunctionSpaceImpl::new(&mesh, &nc);
             let matrix = assemble_mass_matrix(&rt_space, &nc_space);
 
             let svals = matrix.singular_values().unwrap();
@@ -37,21 +37,21 @@ fn main() {
             );
 
             // RT-RBC
-            let rgrid = RefinedGrid::new(&grid);
+            let rmesh = RefinedMesh::new(&mesh);
 
-            let fine_nc_space = FunctionSpaceImpl::new(rgrid.fine_grid(), &nc);
+            let fine_nc_space = FunctionSpaceImpl::new(rmesh.fine_mesh(), &nc);
             let rbc_space = DualSpace::new(
-                &rgrid,
+                &rmesh,
                 &fine_nc_space,
-                bc_coefficients(&rgrid, &fine_nc_space, Continuity::Standard),
+                bc_coefficients(&rmesh, &fine_nc_space, Continuity::Standard),
             );
 
-            let coarse_rt_space = FunctionSpaceImpl::new(&grid, &rt);
-            let fine_rt_space = FunctionSpaceImpl::new(rgrid.fine_grid(), &rt);
+            let coarse_rt_space = FunctionSpaceImpl::new(&mesh, &rt);
+            let fine_rt_space = FunctionSpaceImpl::new(rmesh.fine_mesh(), &rt);
             let rt_space = DualSpace::new(
-                &rgrid,
+                &rmesh,
                 &fine_rt_space,
-                barycentric_representation_coefficients(&rgrid, &coarse_rt_space, &fine_rt_space),
+                barycentric_representation_coefficients(&rmesh, &coarse_rt_space, &fine_rt_space),
             );
 
             let matrix = assemble_mass_matrix_dual(&rt_space, &rbc_space);

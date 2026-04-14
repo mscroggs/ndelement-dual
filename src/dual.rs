@@ -4,51 +4,51 @@ mod representation;
 pub use bc::coefficients as bc_coefficients;
 pub use representation::coefficients as barycentric_representation_coefficients;
 
-use crate::RefinedGrid;
+use crate::RefinedMesh;
 use ndelement::types::ReferenceCellType;
 use ndfunctionspace::traits::FunctionSpace;
-use ndgrid::{traits::Grid, types::Scalar};
+use ndmesh::{traits::Mesh, types::Scalar};
 use std::collections::HashMap;
 
 /// A dual space
 pub struct DualSpace<
     'a,
-    TGrid: Scalar,
+    TMesh: Scalar,
     T: Scalar,
-    G: Grid<T = TGrid, EntityDescriptor = ReferenceCellType>,
-    FineG: Grid<T = TGrid, EntityDescriptor = ReferenceCellType>,
-    Space: FunctionSpace<EntityDescriptor = ReferenceCellType, Grid = FineG>,
+    G: Mesh<T = TMesh, EntityDescriptor = ReferenceCellType>,
+    FineG: Mesh<T = TMesh, EntityDescriptor = ReferenceCellType>,
+    Space: FunctionSpace<EntityDescriptor = ReferenceCellType, Mesh = FineG>,
 > {
-    grid: &'a RefinedGrid<'a, TGrid, G, FineG>,
+    mesh: &'a RefinedMesh<'a, TMesh, G, FineG>,
     fine_space: &'a Space,
     coefficients: Vec<HashMap<usize, T>>,
 }
 
 impl<
     'a,
-    TGrid: Scalar,
+    TMesh: Scalar,
     T: Scalar,
-    G: Grid<T = TGrid, EntityDescriptor = ReferenceCellType>,
-    FineG: Grid<T = TGrid, EntityDescriptor = ReferenceCellType>,
-    Space: FunctionSpace<EntityDescriptor = ReferenceCellType, Grid = FineG>,
-> DualSpace<'a, TGrid, T, G, FineG, Space>
+    G: Mesh<T = TMesh, EntityDescriptor = ReferenceCellType>,
+    FineG: Mesh<T = TMesh, EntityDescriptor = ReferenceCellType>,
+    Space: FunctionSpace<EntityDescriptor = ReferenceCellType, Mesh = FineG>,
+> DualSpace<'a, TMesh, T, G, FineG, Space>
 {
     /// Create new
     pub fn new(
-        grid: &'a RefinedGrid<'a, TGrid, G, FineG>,
+        mesh: &'a RefinedMesh<'a, TMesh, G, FineG>,
         fine_space: &'a Space,
         coefficients: Vec<HashMap<usize, T>>,
     ) -> Self {
         Self {
-            grid,
+            mesh,
             fine_space,
             coefficients,
         }
     }
 
-    /// Grid
-    pub fn grid(&self) -> &'a RefinedGrid<'a, TGrid, G, FineG> {
-        self.grid
+    /// Mesh
+    pub fn mesh(&self) -> &'a RefinedMesh<'a, TMesh, G, FineG> {
+        self.mesh
     }
 
     /// Fine space

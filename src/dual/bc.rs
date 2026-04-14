@@ -1,14 +1,14 @@
 //! Buffa-Christiansen dual spaces
 
-use crate::RefinedGrid;
+use crate::RefinedMesh;
 use ndelement::{
     ciarlet::CiarletElement,
     traits::Map,
     types::{Continuity, ReferenceCellType},
 };
 use ndfunctionspace::traits::FunctionSpace;
-use ndgrid::traits::{Entity, Grid, Topology};
-use ndgrid::types::Scalar;
+use ndmesh::traits::{Entity, Mesh, Topology};
+use ndmesh::types::Scalar;
 use std::collections::HashMap;
 
 /// Generate the coefficients that define the basis functions of a BC space
@@ -16,33 +16,33 @@ pub fn coefficients<
     'a,
     TGeo: Scalar,
     T: Scalar,
-    G: Grid<T = TGeo, EntityDescriptor = ReferenceCellType>,
-    FineG: Grid<T = TGeo, EntityDescriptor = ReferenceCellType>,
+    G: Mesh<T = TGeo, EntityDescriptor = ReferenceCellType>,
+    FineG: Mesh<T = TGeo, EntityDescriptor = ReferenceCellType>,
     M: Map,
 >(
-    refined_grid: &'a RefinedGrid<'a, TGeo, G, FineG>,
+    refined_mesh: &'a RefinedMesh<'a, TGeo, G, FineG>,
     fine_space: &impl FunctionSpace<
         EntityDescriptor = ReferenceCellType,
-        Grid = FineG,
+        Mesh = FineG,
         FiniteElement = CiarletElement<T, M, TGeo>,
     >,
     continuity: Continuity,
 ) -> Vec<HashMap<usize, T>> {
-    let fine_grid = refined_grid.fine_grid();
-    let coarse_grid = refined_grid.coarse_grid();
+    let fine_mesh = refined_mesh.fine_mesh();
+    let coarse_mesh = refined_mesh.coarse_mesh();
 
-    assert_eq!(coarse_grid.topology_dim(), 2);
-    assert_eq!(fine_grid.entity_types(2).len(), 1);
-    assert_eq!(fine_grid.entity_types(2)[0], ReferenceCellType::Triangle);
+    assert_eq!(coarse_mesh.topology_dim(), 2);
+    assert_eq!(fine_mesh.entity_types(2).len(), 1);
+    assert_eq!(fine_mesh.entity_types(2)[0], ReferenceCellType::Triangle);
 
     let mut coeffs = vec![];
-    for edge in coarse_grid.entity_iter(ReferenceCellType::Interval) {
-        let edge_point = refined_grid.fine_vertex(ReferenceCellType::Interval, edge.local_index());
+    for edge in coarse_mesh.entity_iter(ReferenceCellType::Interval) {
+        let edge_point = refined_mesh.fine_vertex(ReferenceCellType::Interval, edge.local_index());
 
         let mut c = HashMap::new();
         for coarse_v_index in edge.topology().sub_entity_iter(ReferenceCellType::Point) {
-            let fine_v_index = refined_grid.fine_vertex(ReferenceCellType::Point, coarse_v_index);
-            let fine_v = fine_grid
+            let fine_v_index = refined_mesh.fine_vertex(ReferenceCellType::Point, coarse_v_index);
+            let fine_v = fine_mesh
                 .entity(ReferenceCellType::Point, fine_v_index)
                 .unwrap();
 
@@ -60,7 +60,7 @@ pub fn coefficients<
             let mut next_edge = *fine_edges
                 .iter()
                 .find(|i| {
-                    let vs = fine_grid
+                    let vs = fine_mesh
                         .entity(ReferenceCellType::Interval, **i)
                         .unwrap()
                         .topology()
@@ -77,7 +77,7 @@ pub fn coefficients<
                 ordered_edges.push(next_edge);
                 let mut used = None;
                 for (i, face_index) in fine_faces.iter().enumerate() {
-                    let face = fine_grid
+                    let face = fine_mesh
                         .entity(ReferenceCellType::Triangle, *face_index)
                         .unwrap();
                     let edges = face
@@ -108,7 +108,7 @@ pub fn coefficients<
 
             for e in ordered_edges.iter().skip(1) {
                 if n != 0 {
-                    let v = fine_grid
+                    let v = fine_mesh
                         .entity(ReferenceCellType::Interval, *e)
                         .unwrap()
                         .topology()
@@ -136,7 +136,7 @@ pub fn coefficients<
                 .topology()
                 .sub_entity_iter(ReferenceCellType::Interval)
             {
-                let vs = fine_grid
+                let vs = fine_mesh
                     .entity(ReferenceCellType::Interval, e)
                     .unwrap()
                     .topology()
@@ -157,7 +157,7 @@ pub fn coefficients<
                 .topology()
                 .sub_entity_iter(ReferenceCellType::Interval)
             {
-                let vs = fine_grid
+                let vs = fine_mesh
                     .entity(ReferenceCellType::Interval, e)
                     .unwrap()
                     .topology()
@@ -196,27 +196,27 @@ mod test {
         types::Continuity,
     };
     use ndfunctionspace::FunctionSpaceImpl;
-    use ndgrid::shapes;
+    use ndmesh::shapes;
 
     #[test]
     fn test_bc_space() {
-        let grid = shapes::regular_sphere::<f64>(1, ReferenceCellType::Triangle);
+        let mesh = shapes::regular_sphere::<f64>(1, ReferenceCellType::Triangle);
 
         let nc = NedelecFirstKindElementFamily::<f64>::new(1, Continuity::Standard);
-        let nc_space = FunctionSpaceImpl::new(&grid, &nc);
+        let nc_space = FunctionSpaceImpl::new(&mesh, &nc);
 
-        let rgrid = RefinedGrid::new(&grid);
+        let rmesh = RefinedMesh::new(&mesh);
         let rt = RaviartThomasElementFamily::<f64>::new(1, Continuity::Standard);
-        let fine_space = FunctionSpaceImpl::new(rgrid.fine_grid(), &rt);
+        let fine_space = FunctionSpaceImpl::new(rmesh.fine_mesh(), &rt);
         let bc_space = DualSpace::new(
-            &rgrid,
+            &rmesh,
             &fine_space,
-            coefficients(&rgrid, &fine_space, Continuity::Standard),
+            coefficients(&rmesh, &fine_space, Continuity::Standard),
         );
         let dbc_space = DualSpace::new(
-            &rgrid,
+            &rmesh,
             &fine_space,
-            coefficients(&rgrid, &fine_space, Continuity::Discontinuous),
+            coefficients(&rmesh, &fine_space, Continuity::Discontinuous),
         );
 
         assert_eq!(nc_space.local_size(), bc_space.dim());

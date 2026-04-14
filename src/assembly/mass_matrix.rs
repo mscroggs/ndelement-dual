@@ -6,8 +6,8 @@ use ndelement::{
     types::ReferenceCellType,
 };
 use ndfunctionspace::traits::FunctionSpace;
-use ndgrid::{
-    traits::{Entity, Geometry, GeometryMap, Grid, Topology},
+use ndmesh::{
+    traits::{Entity, Geometry, GeometryMap, Mesh, Topology},
     types::Scalar,
 };
 use quadraturerules::{Domain, QuadratureRule, single_integral_quadrature};
@@ -18,17 +18,17 @@ pub fn assemble_dual<
     'a,
     TGeo: Scalar,
     T: Scalar,
-    G: Grid<T = TGeo, EntityDescriptor = ReferenceCellType>,
-    FineG: Grid<T = TGeo, EntityDescriptor = ReferenceCellType>,
+    G: Mesh<T = TGeo, EntityDescriptor = ReferenceCellType>,
+    FineG: Mesh<T = TGeo, EntityDescriptor = ReferenceCellType>,
     TestM: Map,
     TrialM: Map,
     TestF: FunctionSpace<
-            Grid = FineG,
+            Mesh = FineG,
             EntityDescriptor = ReferenceCellType,
             FiniteElement = CiarletElement<T, TestM, TGeo>,
         >,
     TrialF: FunctionSpace<
-            Grid = FineG,
+            Mesh = FineG,
             EntityDescriptor = ReferenceCellType,
             FiniteElement = CiarletElement<T, TrialM, TGeo>,
         >,
@@ -63,34 +63,34 @@ pub fn assemble_dual<
 pub fn assemble<
     TGeo: Scalar,
     T: Scalar,
-    G: Grid<T = TGeo, EntityDescriptor = ReferenceCellType>,
+    G: Mesh<T = TGeo, EntityDescriptor = ReferenceCellType>,
     TestF: MappedFiniteElement<T = T, CellType = ReferenceCellType>,
     TrialF: MappedFiniteElement<T = T, CellType = ReferenceCellType>,
 >(
     test_space: &impl FunctionSpace<
-        Grid = G,
+        Mesh = G,
         FiniteElement = TestF,
         EntityDescriptor = ReferenceCellType,
     >,
     trial_space: &impl FunctionSpace<
-        Grid = G,
+        Mesh = G,
         FiniteElement = TrialF,
         EntityDescriptor = ReferenceCellType,
     >,
 ) -> DynArray<T, 2> {
     assert_eq!(
-        test_space.grid() as *const G,
-        trial_space.grid() as *const G
+        test_space.mesh() as *const G,
+        trial_space.mesh() as *const G
     );
 
     let mut matrix = rlst_dynamic_array!(T, [test_space.local_size(), trial_space.local_size()]);
 
     let geometry_degree = test_space
-        .grid()
+        .mesh()
         .entity_iter(
             test_space
-                .grid()
-                .entity_types(test_space.grid().topology_dim())[0],
+                .mesh()
+                .entity_types(test_space.mesh().topology_dim())[0],
         )
         .next()
         .unwrap()
@@ -98,8 +98,8 @@ pub fn assemble<
         .degree();
 
     for ct in test_space
-        .grid()
-        .entity_types(test_space.grid().topology_dim())
+        .mesh()
+        .entity_types(test_space.mesh().topology_dim())
     {
         let test_es = test_space
             .elements()
@@ -171,27 +171,27 @@ pub fn assemble<
         trial_e.tabulate(&points, 0, &mut trial_table);
 
         let gmap = test_space
-            .grid()
+            .mesh()
             .geometry_map(*ct, geometry_degree, &points);
 
         let mut jacobians = rlst_dynamic_array!(
             TGeo,
             [
-                test_space.grid().geometry_dim(),
-                test_space.grid().topology_dim(),
+                test_space.mesh().geometry_dim(),
+                test_space.mesh().topology_dim(),
                 npts
             ]
         );
         let mut jinv = rlst_dynamic_array!(
             TGeo,
             [
-                test_space.grid().topology_dim(),
-                test_space.grid().geometry_dim(),
+                test_space.mesh().topology_dim(),
+                test_space.mesh().geometry_dim(),
                 npts
             ]
         );
         let mut jdets = vec![TGeo::zero(); npts];
-        let mut normals = rlst_dynamic_array!(TGeo, [test_space.grid().geometry_dim(), npts]);
+        let mut normals = rlst_dynamic_array!(TGeo, [test_space.mesh().geometry_dim(), npts]);
 
         let mut local_matrix =
             rlst_dynamic_array!(T, [test_table.shape()[2], trial_table.shape()[2]]);
@@ -202,7 +202,7 @@ pub fn assemble<
                 test_table.shape()[0],
                 test_table.shape()[1],
                 test_table.shape()[2],
-                test_e.physical_value_size(test_space.grid().geometry_dim())
+                test_e.physical_value_size(test_space.mesh().geometry_dim())
             ]
         );
         let mut trial_physical_values = rlst_dynamic_array!(
@@ -211,11 +211,11 @@ pub fn assemble<
                 trial_table.shape()[0],
                 trial_table.shape()[1],
                 trial_table.shape()[2],
-                trial_e.physical_value_size(trial_space.grid().geometry_dim())
+                trial_e.physical_value_size(trial_space.mesh().geometry_dim())
             ]
         );
 
-        for cell in test_space.grid().entity_iter(*ct) {
+        for cell in test_space.mesh().entity_iter(*ct) {
             let test_dofs = test_space
                 .entity_closure_dofs(*ct, cell.local_index())
                 .unwrap();
@@ -289,26 +289,28 @@ pub fn assemble<
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{RefinedGrid, barycentric_representation_coefficients, bc_coefficients};
+    use crate::{RefinedMesh, barycentric_representation_coefficients, bc_coefficients};
     use approx::*;
     use ndelement::{
         ciarlet::{
-            LagrangeElementFamily, NedelecFirstKindElementFamily, RaviartThomasElementFamily,
+            LagrangeElementFamily, LagrangeVariant, NedelecFirstKindElementFamily,
+            RaviartThomasElementFamily,
         },
         types::Continuity,
     };
     use ndfunctionspace::FunctionSpaceImpl;
-    use ndgrid::{
-        SingleElementGridBuilder, shapes,
+    use ndmesh::{
+        SingleElementMeshBuilder, shapes,
         traits::{Builder, Geometry, Point},
     };
     use rand::{rng, seq::SliceRandom};
 
     #[test]
     fn test_lagrange_assembly() {
-        let grid = shapes::regular_sphere::<f64>(0, ReferenceCellType::Triangle);
-        let family = LagrangeElementFamily::<f64>::new(1, Continuity::Standard);
-        let space = FunctionSpaceImpl::new(&grid, &family);
+        let mesh = shapes::regular_sphere::<f64>(0, ReferenceCellType::Triangle);
+        let family =
+            LagrangeElementFamily::<f64>::new(1, Continuity::Standard, LagrangeVariant::Equispaced);
+        let space = FunctionSpaceImpl::new(&mesh, &family);
         let result = assemble(&space, &space);
 
         for i in 0..6 {
@@ -325,9 +327,10 @@ mod test {
 
     #[test]
     fn test_lagrange_quadrilateral() {
-        let grid = shapes::screen::<f64>(1, ReferenceCellType::Quadrilateral);
-        let family = LagrangeElementFamily::<f64>::new(1, Continuity::Standard);
-        let space = FunctionSpaceImpl::new(&grid, &family);
+        let mesh = shapes::screen::<f64>(1, ReferenceCellType::Quadrilateral);
+        let family =
+            LagrangeElementFamily::<f64>::new(1, Continuity::Standard, LagrangeVariant::Equispaced);
+        let space = FunctionSpaceImpl::new(&mesh, &family);
         let result = assemble(&space, &space);
 
         for i in 0..4 {
@@ -352,11 +355,11 @@ mod test {
 
     #[test]
     fn test_rt_nc_assembly() {
-        let grid = shapes::regular_sphere::<f64>(0, ReferenceCellType::Triangle);
+        let mesh = shapes::regular_sphere::<f64>(0, ReferenceCellType::Triangle);
         let rt = RaviartThomasElementFamily::<f64>::new(1, Continuity::Standard);
         let nc = NedelecFirstKindElementFamily::<f64>::new(1, Continuity::Standard);
-        let rt_space = FunctionSpaceImpl::new(&grid, &rt);
-        let nc_space = FunctionSpaceImpl::new(&grid, &nc);
+        let rt_space = FunctionSpaceImpl::new(&mesh, &rt);
+        let nc_space = FunctionSpaceImpl::new(&mesh, &nc);
         let result = assemble(&rt_space, &nc_space);
 
         for i in 0..6 {
@@ -370,15 +373,15 @@ mod test {
 
     #[test]
     fn test_rt_nc_assembly_randomly_numbered() {
-        let grid1 = shapes::unit_cube_boundary::<f64>(3, 3, 3, ReferenceCellType::Triangle);
-        let grid2 = {
-            let mut b = SingleElementGridBuilder::new_with_capacity(
+        let mesh1 = shapes::unit_cube_boundary::<f64>(3, 3, 3, ReferenceCellType::Triangle);
+        let mesh2 = {
+            let mut b = SingleElementMeshBuilder::new_with_capacity(
                 3,
                 6,
                 8,
                 (ReferenceCellType::Triangle, 1),
             );
-            let points = grid1
+            let points = mesh1
                 .entity_iter(ReferenceCellType::Point)
                 .map(|v| {
                     let mut p = vec![0.0; 3];
@@ -393,7 +396,7 @@ mod test {
                 b.add_point(i, &points[*j]);
                 index_map[*j] = i;
             }
-            for (i, cell) in grid1.entity_iter(ReferenceCellType::Triangle).enumerate() {
+            for (i, cell) in mesh1.entity_iter(ReferenceCellType::Triangle).enumerate() {
                 b.add_cell(
                     i,
                     &cell
@@ -403,18 +406,18 @@ mod test {
                         .collect::<Vec<_>>(),
                 );
             }
-            b.create_grid()
+            b.create_mesh()
         };
 
         let rt = RaviartThomasElementFamily::<f64>::new(1, Continuity::Standard);
         let nc = NedelecFirstKindElementFamily::<f64>::new(1, Continuity::Standard);
 
-        let rt_space = FunctionSpaceImpl::new(&grid1, &rt);
-        let nc_space = FunctionSpaceImpl::new(&grid1, &nc);
+        let rt_space = FunctionSpaceImpl::new(&mesh1, &rt);
+        let nc_space = FunctionSpaceImpl::new(&mesh1, &nc);
         let result1 = assemble(&rt_space, &nc_space);
 
-        let rt_space = FunctionSpaceImpl::new(&grid2, &rt);
-        let nc_space = FunctionSpaceImpl::new(&grid2, &nc);
+        let rt_space = FunctionSpaceImpl::new(&mesh2, &rt);
+        let nc_space = FunctionSpaceImpl::new(&mesh2, &nc);
         let result2 = assemble(&rt_space, &nc_space);
 
         for i in 0..result1.shape()[0] {
@@ -430,10 +433,10 @@ mod test {
 
     #[test]
     fn test_rt_assembly() {
-        let grid = shapes::regular_sphere::<f64>(0, ReferenceCellType::Triangle);
+        let mesh = shapes::regular_sphere::<f64>(0, ReferenceCellType::Triangle);
 
         let rt = RaviartThomasElementFamily::<f64>::new(1, Continuity::Standard);
-        let rt_space = FunctionSpaceImpl::new(&grid, &rt);
+        let rt_space = FunctionSpaceImpl::new(&mesh, &rt);
 
         let result = assemble(&rt_space, &rt_space);
 
@@ -455,15 +458,15 @@ mod test {
 
     #[test]
     fn test_bc_assembly() {
-        let grid = shapes::regular_sphere::<f64>(0, ReferenceCellType::Triangle);
-        let rgrid = RefinedGrid::new(&grid);
+        let mesh = shapes::regular_sphere::<f64>(0, ReferenceCellType::Triangle);
+        let rmesh = RefinedMesh::new(&mesh);
 
         let rt = RaviartThomasElementFamily::<f64>::new(1, Continuity::Standard);
-        let fine_rt_space = FunctionSpaceImpl::new(rgrid.fine_grid(), &rt);
+        let fine_rt_space = FunctionSpaceImpl::new(rmesh.fine_mesh(), &rt);
         let bc_space = DualSpace::new(
-            &rgrid,
+            &rmesh,
             &fine_rt_space,
-            bc_coefficients(&rgrid, &fine_rt_space, Continuity::Standard),
+            bc_coefficients(&rmesh, &fine_rt_space, Continuity::Standard),
         );
 
         let result = assemble_dual(&bc_space, &bc_space);
@@ -494,21 +497,21 @@ mod test {
 
     #[test]
     fn test_rt_bc_assembly() {
-        let grid = shapes::regular_sphere::<f64>(0, ReferenceCellType::Triangle);
-        let rgrid = RefinedGrid::new(&grid);
+        let mesh = shapes::regular_sphere::<f64>(0, ReferenceCellType::Triangle);
+        let rmesh = RefinedMesh::new(&mesh);
 
         let rt = RaviartThomasElementFamily::<f64>::new(1, Continuity::Standard);
-        let coarse_rt_space = FunctionSpaceImpl::new(rgrid.coarse_grid(), &rt);
-        let fine_rt_space = FunctionSpaceImpl::new(rgrid.fine_grid(), &rt);
+        let coarse_rt_space = FunctionSpaceImpl::new(rmesh.coarse_mesh(), &rt);
+        let fine_rt_space = FunctionSpaceImpl::new(rmesh.fine_mesh(), &rt);
         let rt_space = DualSpace::new(
-            &rgrid,
+            &rmesh,
             &fine_rt_space,
-            barycentric_representation_coefficients(&rgrid, &coarse_rt_space, &fine_rt_space),
+            barycentric_representation_coefficients(&rmesh, &coarse_rt_space, &fine_rt_space),
         );
         let bc_space = DualSpace::new(
-            &rgrid,
+            &rmesh,
             &fine_rt_space,
-            bc_coefficients(&rgrid, &fine_rt_space, Continuity::Standard),
+            bc_coefficients(&rmesh, &fine_rt_space, Continuity::Standard),
         );
 
         let result = assemble_dual(&rt_space, &bc_space);
@@ -539,24 +542,24 @@ mod test {
 
     #[test]
     fn test_rt_rbc_assembly() {
-        let grid = shapes::regular_sphere::<f64>(0, ReferenceCellType::Triangle);
-        let rgrid = RefinedGrid::new(&grid);
+        let mesh = shapes::regular_sphere::<f64>(0, ReferenceCellType::Triangle);
+        let rmesh = RefinedMesh::new(&mesh);
 
         let rt = RaviartThomasElementFamily::<f64>::new(1, Continuity::Standard);
-        let coarse_rt_space = FunctionSpaceImpl::new(rgrid.coarse_grid(), &rt);
-        let fine_rt_space = FunctionSpaceImpl::new(rgrid.fine_grid(), &rt);
+        let coarse_rt_space = FunctionSpaceImpl::new(rmesh.coarse_mesh(), &rt);
+        let fine_rt_space = FunctionSpaceImpl::new(rmesh.fine_mesh(), &rt);
         let rt_space = DualSpace::new(
-            &rgrid,
+            &rmesh,
             &fine_rt_space,
-            barycentric_representation_coefficients(&rgrid, &coarse_rt_space, &fine_rt_space),
+            barycentric_representation_coefficients(&rmesh, &coarse_rt_space, &fine_rt_space),
         );
 
         let nc = NedelecFirstKindElementFamily::<f64>::new(1, Continuity::Standard);
-        let fine_nc_space = FunctionSpaceImpl::new(rgrid.fine_grid(), &nc);
+        let fine_nc_space = FunctionSpaceImpl::new(rmesh.fine_mesh(), &nc);
         let rbc_space = DualSpace::new(
-            &rgrid,
+            &rmesh,
             &fine_nc_space,
-            bc_coefficients(&rgrid, &fine_nc_space, Continuity::Standard),
+            bc_coefficients(&rmesh, &fine_nc_space, Continuity::Standard),
         );
 
         let result = assemble_dual(&rt_space, &rbc_space);
