@@ -1,9 +1,11 @@
 //! Dual spaces
 mod bc;
 mod dual0;
+mod dual1;
 mod representation;
 pub use bc::coefficients as bc_coefficients;
 pub use dual0::coefficients as dual0_coefficients;
+pub use dual1::coefficients as dual1_coefficients;
 pub use representation::coefficients as barycentric_representation_coefficients;
 
 use crate::RefinedMesh;

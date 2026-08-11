@@ -1,4 +1,4 @@
-//! Buffa-Christiansen dual spaces
+//! Piecewise constant dual spaces
 
 use crate::RefinedMesh;
 use ndelement::{
@@ -11,7 +11,7 @@ use ndmesh::traits::{Entity, Mesh, Topology};
 use ndmesh::types::Scalar;
 use std::collections::HashMap;
 
-/// Generate the coefficients that define the basis functions of a BC space
+/// Generate the coefficients that define the basis functions of a DUAL0 space
 pub fn coefficients<
     'a,
     TGeo: Scalar,
