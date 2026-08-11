@@ -374,7 +374,7 @@ mod test {
             let mut ones = 0;
             let mut halves = 0;
             let mut thirds = 0;
-            for (_, i) in c {
+            for i in c.values() {
                 if (1.0 - i).abs() < 1e-5 {
                     ones += 1;
                 } else if (0.5 - i).abs() < 1e-5 {
@@ -412,7 +412,7 @@ mod test {
             let mut ones = 0;
             let mut halves = 0;
             let mut quarters = 0;
-            for (_, i) in c {
+            for i in c.values() {
                 if (1.0 - i).abs() < 1e-5 {
                     ones += 1;
                 } else if (0.5 - i).abs() < 1e-5 {
@@ -529,7 +529,7 @@ mod test {
 
         for coeffs in &coefficients {
             let mut counts = expected_coeffs.iter().map(|_| 0).collect::<Vec<_>>();
-            for (_, c) in coeffs {
+            for c in coeffs.values() {
                 for (i, (value, _)) in expected_coeffs.iter().enumerate() {
                     if (value - c).abs() < 1e-5 {
                         counts[i] += 1;
