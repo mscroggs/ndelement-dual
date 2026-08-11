@@ -18,9 +18,9 @@ keywords = ["numerics"]
 categories = ["mathematics", "science"]
 
 [dependencies]
-ndelement = { git = "https://codeberg.org/nd-project/nd.git", branch = "mscroggs/outward_normals" }
-ndfunctionspace = { git = "https://codeberg.org/nd-project/nd.git", branch = "mscroggs/outward_normals" }
-ndmesh = { git = "https://codeberg.org/nd-project/nd.git", branch = "mscroggs/outward_normals" }
+ndelement = { git = "https://codeberg.org/nd-project/nd.git", branch = "mscroggs/outward_normals", features = ["openblas-system"]}
+ndfunctionspace = { git = "https://codeberg.org/nd-project/nd.git", branch = "mscroggs/outward_normals", features = ["openblas-system"]}
+ndmesh = { git = "https://codeberg.org/nd-project/nd.git", branch = "mscroggs/outward_normals", features = ["openblas-system"]}
 rlst = "0.6"
 itertools = "0.14.*"
 quadraturerules = "0.9.0"

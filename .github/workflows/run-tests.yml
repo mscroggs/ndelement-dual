@@ -32,8 +32,6 @@ jobs:
 
       - name: Run unit tests
         run: cargo test --features "strict"
-      - name: Run unit tests in release mode
-        run: cargo test --release --features "strict"
       - name: Run tests
         run: cargo test --examples --release --features "strict"
       - name: Run examples
