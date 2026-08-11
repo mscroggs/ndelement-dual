@@ -9,5 +9,6 @@ mod mesh;
 pub use assembly::{assemble_mass_matrix, assemble_mass_matrix_dual};
 pub use dual::{
     DualSpace, barycentric_representation_coefficients, bc_coefficients, dual0_coefficients,
+    dual1_coefficients,
 };
 pub use mesh::{DualMesh, RefinedMesh};

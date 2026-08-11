@@ -4,7 +4,7 @@ use ndelement::{
 };
 use ndelement_dual::{
     DualSpace, RefinedMesh, assemble_mass_matrix, assemble_mass_matrix_dual,
-    barycentric_representation_coefficients, dual0_coefficients,
+    barycentric_representation_coefficients, dual0_coefficients, dual1_coefficients,
 };
 use ndfunctionspace::FunctionSpaceImpl;
 use ndmesh::{shapes::regular_sphere, traits::Mesh};
@@ -43,11 +43,11 @@ fn main() {
                 svals[[0]] / svals[[svals.len() - 1]]
             );
 
-            // P1-DUAL
+            // P1-DUAL0
             let rmesh = RefinedMesh::new(&mesh);
 
             let fine_dp0_space = FunctionSpaceImpl::new(rmesh.fine_mesh(), &dp0);
-            let dual_space = DualSpace::new(
+            let dual0_space = DualSpace::new(
                 &rmesh,
                 &fine_dp0_space,
                 dual0_coefficients(&rmesh, &fine_dp0_space, Continuity::Discontinuous),
@@ -61,12 +61,37 @@ fn main() {
                 barycentric_representation_coefficients(&rmesh, &coarse_p1_space, &fine_p1_space),
             );
 
-            let matrix = assemble_mass_matrix_dual(&p1_space, &dual_space);
+            let matrix = assemble_mass_matrix_dual(&p1_space, &dual0_space);
 
             let svals = matrix.singular_values().unwrap();
 
             println!(
                 "Condition number (P1-DUAL0): {}",
+                svals[[0]] / svals[[svals.len() - 1]]
+            );
+
+            // DUAL1-DP0
+            let fine_p1_space = FunctionSpaceImpl::new(rmesh.fine_mesh(), &p1);
+            let dual1_space = DualSpace::new(
+                &rmesh,
+                &fine_p1_space,
+                dual1_coefficients(&rmesh, &fine_p1_space, Continuity::Standard),
+            );
+
+            let coarse_dp0_space = FunctionSpaceImpl::new(&mesh, &dp0);
+            let fine_dp0_space = FunctionSpaceImpl::new(rmesh.fine_mesh(), &dp0);
+            let dp0_space = DualSpace::new(
+                &rmesh,
+                &fine_dp0_space,
+                barycentric_representation_coefficients(&rmesh, &coarse_dp0_space, &fine_dp0_space),
+            );
+
+            let matrix = assemble_mass_matrix_dual(&dual1_space, &dp0_space);
+
+            let svals = matrix.singular_values().unwrap();
+
+            println!(
+                "Condition number (DUAL1-DP0): {}",
                 svals[[0]] / svals[[svals.len() - 1]]
             );
             println!();
