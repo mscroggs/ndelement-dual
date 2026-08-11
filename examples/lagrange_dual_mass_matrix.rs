@@ -20,8 +20,16 @@ fn main() {
             let mesh = regular_sphere::<f64>(i, ct, 1);
             println!("Number of cells:  {}", mesh.entity_count(ct));
 
-            let p1 = LagrangeElementFamily::<f64>::new(1, Continuity::Standard, LagrangeVariant::Equispaced);
-            let dp0 = LagrangeElementFamily::<f64>::new(0, Continuity::Discontinuous, LagrangeVariant::Equispaced);
+            let p1 = LagrangeElementFamily::<f64>::new(
+                1,
+                Continuity::Standard,
+                LagrangeVariant::Equispaced,
+            );
+            let dp0 = LagrangeElementFamily::<f64>::new(
+                0,
+                Continuity::Discontinuous,
+                LagrangeVariant::Equispaced,
+            );
 
             // P1-DP0
             let p1_space = FunctionSpaceImpl::new(&mesh, &p1);

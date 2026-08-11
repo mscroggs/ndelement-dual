@@ -49,7 +49,7 @@ pub fn coefficients<
             let dofs = fine_space
                 .entity_dofs(ReferenceCellType::Triangle, fine_face)
                 .unwrap();
-                c.insert(dofs[0], T::one());
+            c.insert(dofs[0], T::one());
         }
         let n = T::from(c.len()).unwrap();
         for i in c.values_mut() {
