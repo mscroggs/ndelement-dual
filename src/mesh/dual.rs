@@ -71,7 +71,7 @@ mod test {
 
     #[test]
     fn test_dual_triangle() {
-        let mesh = unit_cube_boundary::<f64>(2, 2, 2, ReferenceCellType::Triangle);
+        let mesh = unit_cube_boundary::<f64>(2, 2, 2, ReferenceCellType::Triangle, 1);
         let bmesh = RefinedMesh::new(&mesh);
         let dual_mesh = DualMesh::new(&bmesh);
         assert_eq!(
@@ -88,7 +88,7 @@ mod test {
 
     #[test]
     fn test_refine_quadrilateral() {
-        let mesh = unit_cube_boundary::<f64>(2, 2, 2, ReferenceCellType::Quadrilateral);
+        let mesh = unit_cube_boundary::<f64>(2, 2, 2, ReferenceCellType::Quadrilateral, 1);
         let bmesh = RefinedMesh::new(&mesh);
         let dual_mesh = DualMesh::new(&bmesh);
         assert_eq!(

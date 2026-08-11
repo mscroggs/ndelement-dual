@@ -18,7 +18,7 @@ fn main() {
         ] {
             println!("{ct:?}");
             let n = usize::pow(2, i);
-            let mesh = ndmesh::shapes::unit_cube_boundary::<f64>(n, n, n, ct);
+            let mesh = ndmesh::shapes::unit_cube_boundary::<f64>(n, n, n, ct, 1);
             println!("Number of cells:  {}", mesh.entity_count(ct));
 
             let rt = RaviartThomasElementFamily::<f64>::new(1, Continuity::Standard);

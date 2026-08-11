@@ -143,10 +143,10 @@ impl<'a, T: Scalar, G: Mesh<T = T, EntityDescriptor = ReferenceCellType>>
             let edges = t
                 .sub_entity_iter(ReferenceCellType::Interval)
                 .collect::<Vec<_>>();
-            b.add_cell(6 * fi, &[vertices[0], nv + edges[2], vertex_i]);
-            b.add_cell(6 * fi + 1, &[nv + edges[2], vertices[1], vertex_i]);
-            b.add_cell(6 * fi + 2, &[vertices[1], nv + edges[0], vertex_i]);
-            b.add_cell(6 * fi + 3, &[nv + edges[0], vertices[2], vertex_i]);
+            b.add_cell(6 * fi, &[vertices[0], nv + edges[0], vertex_i]);
+            b.add_cell(6 * fi + 1, &[nv + edges[0], vertices[1], vertex_i]);
+            b.add_cell(6 * fi + 2, &[vertices[1], nv + edges[2], vertex_i]);
+            b.add_cell(6 * fi + 3, &[nv + edges[2], vertices[2], vertex_i]);
             b.add_cell(6 * fi + 4, &[vertices[2], nv + edges[1], vertex_i]);
             b.add_cell(6 * fi + 5, &[nv + edges[1], vertices[0], vertex_i]);
             child_map[f.local_index()] = (0..6).map(|i| 6 * fi + i).collect::<Vec<_>>();
@@ -216,7 +216,7 @@ mod test {
 
     #[test]
     fn test_refine_triangle() {
-        let mesh = unit_cube_boundary::<f64>(2, 2, 2, ReferenceCellType::Triangle);
+        let mesh = unit_cube_boundary::<f64>(2, 2, 2, ReferenceCellType::Triangle, 1);
         let bmesh = RefinedMesh::new(&mesh);
         assert_eq!(mesh.cell_count(), bmesh.coarse_mesh().cell_count());
         assert_eq!(mesh.cell_count() * 6, bmesh.fine_mesh().cell_count());
@@ -224,7 +224,7 @@ mod test {
 
     #[test]
     fn test_refine_quadrilateral() {
-        let mesh = unit_cube_boundary::<f64>(2, 2, 2, ReferenceCellType::Quadrilateral);
+        let mesh = unit_cube_boundary::<f64>(2, 2, 2, ReferenceCellType::Quadrilateral, 1);
         let bmesh = RefinedMesh::new(&mesh);
         assert_eq!(mesh.cell_count(), bmesh.coarse_mesh().cell_count());
         assert_eq!(mesh.cell_count() * 8, bmesh.fine_mesh().cell_count());

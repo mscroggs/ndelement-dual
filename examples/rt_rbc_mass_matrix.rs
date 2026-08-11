@@ -19,7 +19,7 @@ fn main() {
             ReferenceCellType::Quadrilateral,
         ] {
             println!("{ct:?}");
-            let mesh = regular_sphere::<f64>(i, ct);
+            let mesh = regular_sphere::<f64>(i, ct, 1);
             println!("Number of cells:  {}", mesh.entity_count(ct));
 
             let rt = RaviartThomasElementFamily::<f64>::new(1, Continuity::Standard);

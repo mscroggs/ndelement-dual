@@ -45,7 +45,7 @@ pub fn coefficients<
         fine_space.mesh() as *const FineG
     );
 
-    let mut coefficients = vec![HashMap::new(); coarse_space.local_size()];
+    let mut coefficients = vec![HashMap::new(); coarse_space.process_size()];
 
     assert_eq!(fine_space.elements().len(), 1);
     let fine_e = &fine_space.elements()[0];
@@ -357,8 +357,77 @@ mod test {
     use rlst::rlst_dynamic_array;
 
     #[test]
+    fn test_lagrange_triangle_coefficients() {
+        let mesh = shapes::regular_sphere::<f64>(0, ReferenceCellType::Triangle, 1);
+        let rmesh = RefinedMesh::new(&mesh);
+
+        let family =
+            LagrangeElementFamily::<f64>::new(1, Continuity::Standard, LagrangeVariant::Equispaced);
+        let space = FunctionSpaceImpl::new(&mesh, &family);
+        let fine_space = FunctionSpaceImpl::new(rmesh.fine_mesh(), &family);
+
+        assert_eq!(space.global_size(), 6);
+        assert_eq!(fine_space.global_size(), 26);
+
+        let coefficients = coefficients(&rmesh, &space, &fine_space);
+        for c in coefficients {
+            let mut ones = 0;
+            let mut halves = 0;
+            let mut thirds = 0;
+            for (_, i) in c {
+                if (1.0 - i).abs() < 1e-5 {
+                    ones += 1;
+                } else if (0.5 - i).abs() < 1e-5 {
+                    halves += 1;
+                } else {
+                    assert!((1.0/3.0 - i).abs() < 1e-5);
+                    thirds += 1;
+                }
+            }
+            assert_eq!(ones, 1);
+            assert_eq!(thirds, 4);
+            assert_eq!(halves, 4);
+        }
+    }
+
+    #[test]
+    fn test_lagrange_quadrilateral_coefficients() {
+        let mesh = shapes::unit_cube_boundary::<f64>(1, 1, 1, ReferenceCellType::Quadrilateral, 1);
+        let rmesh = RefinedMesh::new(&mesh);
+
+        let family =
+            LagrangeElementFamily::<f64>::new(1, Continuity::Standard, LagrangeVariant::Equispaced);
+        let space = FunctionSpaceImpl::new(&mesh, &family);
+        let fine_space = FunctionSpaceImpl::new(rmesh.fine_mesh(), &family);
+
+        use ndmesh::traits::GmshExport;
+        mesh.export_as_gmsh("mesh.msh");
+        rmesh.fine_mesh().export_as_gmsh("rmesh.msh");
+
+        assert_eq!(space.global_size(), 8);
+        assert_eq!(fine_space.global_size(), 26);
+
+        let coefficients = coefficients(&rmesh, &space, &fine_space);
+        for c in coefficients {
+            dbg!(&c);
+            let mut ones = 0;
+            let mut halves = 0;
+            for (_, i) in c {
+                if (1.0 - i).abs() < 1e-5 {
+                    ones += 1;
+                } else {
+                    assert!((0.5 - i).abs() < 1e-5);
+                    halves += 1;
+                }
+            }
+            assert_eq!(ones, 1);
+            assert_eq!(halves, 6);
+        }
+    }
+
+    #[test]
     fn test_lagrange_triangles() {
-        let mesh = shapes::regular_sphere::<f64>(1, ReferenceCellType::Triangle);
+        let mesh = shapes::regular_sphere::<f64>(1, ReferenceCellType::Triangle, 1);
         let rmesh = RefinedMesh::new(&mesh);
         let family =
             LagrangeElementFamily::<f64>::new(1, Continuity::Standard, LagrangeVariant::Equispaced);
@@ -380,7 +449,7 @@ mod test {
 
     #[test]
     fn test_lagrange_triangles_mixed_degree() {
-        let mesh = shapes::regular_sphere::<f64>(1, ReferenceCellType::Triangle);
+        let mesh = shapes::regular_sphere::<f64>(1, ReferenceCellType::Triangle, 1);
         let rmesh = RefinedMesh::new(&mesh);
         let family =
             LagrangeElementFamily::<f64>::new(1, Continuity::Standard, LagrangeVariant::Equispaced);
@@ -404,7 +473,7 @@ mod test {
 
     #[test]
     fn test_lagrange_triangles_mixed_continuity() {
-        let mesh = shapes::regular_sphere::<f64>(1, ReferenceCellType::Triangle);
+        let mesh = shapes::regular_sphere::<f64>(1, ReferenceCellType::Triangle, 1);
         let rmesh = RefinedMesh::new(&mesh);
         let family =
             LagrangeElementFamily::<f64>::new(1, Continuity::Standard, LagrangeVariant::Equispaced);
@@ -431,7 +500,7 @@ mod test {
 
     #[test]
     fn test_lagrange_quads() {
-        let mesh = shapes::screen::<f64>(1, ReferenceCellType::Quadrilateral);
+        let mesh = shapes::screen::<f64>(1, ReferenceCellType::Quadrilateral, 1);
         let rmesh = RefinedMesh::new(&mesh);
 
         let family =
@@ -526,7 +595,7 @@ mod test {
     #[test]
     fn test_lagrange_integral() {
         //! Test that integral(v) is the same for Lagrange and barycentric Lagrange
-        let mesh = shapes::regular_sphere::<f64>(2, ReferenceCellType::Triangle);
+        let mesh = shapes::regular_sphere::<f64>(2, ReferenceCellType::Triangle, 1);
         let rmesh = RefinedMesh::new(&mesh);
 
         let family =
@@ -557,7 +626,7 @@ mod test {
         let mut jinv = rlst_dynamic_array!(f64, [2, 3, npts]);
         let mut jdets = vec![0.0; npts];
 
-        let mut coarse_result = vec![0.0; coarse_space.local_size()];
+        let mut coarse_result = vec![0.0; coarse_space.process_size()];
         let gmap = mesh.geometry_map(ReferenceCellType::Triangle, 1, &pts);
         for cell in mesh.entity_iter(ReferenceCellType::Triangle) {
             let dofs = coarse_space
@@ -575,7 +644,7 @@ mod test {
 
         let fine_mesh = rmesh.fine_mesh();
 
-        let mut fine_result = vec![0.0; fine_space.local_size()];
+        let mut fine_result = vec![0.0; fine_space.process_size()];
         let gmap = fine_mesh.geometry_map(ReferenceCellType::Triangle, 1, &pts);
         for cell in fine_mesh.entity_iter(ReferenceCellType::Triangle) {
             let dofs = fine_space
@@ -604,7 +673,7 @@ mod test {
     #[test]
     fn test_rt_integral() {
         //! Test that integral(v[0]) is the same for RT and barycentric RT
-        let mesh = shapes::screen::<f64>(1, ReferenceCellType::Triangle);
+        let mesh = shapes::screen::<f64>(1, ReferenceCellType::Triangle, 1);
         let rmesh = RefinedMesh::new(&mesh);
 
         let family = RaviartThomasElementFamily::<f64>::new(1, Continuity::Standard);
@@ -646,7 +715,7 @@ mod test {
 
         let mut local_vector = vec![0.0; 3];
 
-        let mut coarse_result = vec![0.0; coarse_space.local_size()];
+        let mut coarse_result = vec![0.0; coarse_space.process_size()];
         let gmap = mesh.geometry_map(ReferenceCellType::Triangle, 1, &pts);
         for cell in mesh.entity_iter(ReferenceCellType::Triangle) {
             let dofs = coarse_space
@@ -672,7 +741,7 @@ mod test {
 
         let fine_mesh = rmesh.fine_mesh();
 
-        let mut fine_result = vec![0.0; fine_space.local_size()];
+        let mut fine_result = vec![0.0; fine_space.process_size()];
         let gmap = fine_mesh.geometry_map(ReferenceCellType::Triangle, 1, &pts);
         for cell in fine_mesh.entity_iter(ReferenceCellType::Triangle) {
             let dofs = fine_space
@@ -695,8 +764,6 @@ mod test {
                 fine_result[*dof] += value;
             }
         }
-
-        dbg!(&coefficients[3]);
 
         for (i, c) in coefficients.iter().enumerate() {
             assert_relative_eq!(

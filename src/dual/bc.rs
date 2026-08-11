@@ -200,7 +200,7 @@ mod test {
 
     #[test]
     fn test_bc_space() {
-        let mesh = shapes::regular_sphere::<f64>(1, ReferenceCellType::Triangle);
+        let mesh = shapes::regular_sphere::<f64>(1, ReferenceCellType::Triangle, 1);
 
         let nc = NedelecFirstKindElementFamily::<f64>::new(1, Continuity::Standard);
         let nc_space = FunctionSpaceImpl::new(&mesh, &nc);
@@ -219,7 +219,7 @@ mod test {
             coefficients(&rmesh, &fine_space, Continuity::Discontinuous),
         );
 
-        assert_eq!(nc_space.local_size(), bc_space.dim());
-        assert_eq!(2 * nc_space.local_size(), dbc_space.dim());
+        assert_eq!(nc_space.process_size(), bc_space.dim());
+        assert_eq!(2 * nc_space.process_size(), dbc_space.dim());
     }
 }
