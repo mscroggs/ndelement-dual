@@ -50,7 +50,7 @@ fn main() {
             let dual_space = DualSpace::new(
                 &rmesh,
                 &fine_dp0_space,
-                dual0_coefficients(&rmesh, &fine_dp0_space, Continuity::Standard),
+                dual0_coefficients(&rmesh, &fine_dp0_space, Continuity::Discontinuous),
             );
 
             let coarse_p1_space = FunctionSpaceImpl::new(&mesh, &p1);
