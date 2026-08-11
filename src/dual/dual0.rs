@@ -26,11 +26,16 @@ pub fn coefficients<
         Mesh = FineG,
         FiniteElement = CiarletElement<T, M, TGeo>,
     >,
-    _continuity: Continuity,
+    continuity: Continuity,
 ) -> Vec<HashMap<usize, T>> {
     let fine_mesh = refined_mesh.fine_mesh();
     let coarse_mesh = refined_mesh.coarse_mesh();
     assert_eq!(coarse_mesh.topology_dim(), 2);
+    assert_eq!(
+        continuity,
+        Continuity::Discontinuous,
+        "Cannot create continuous degree 0 dual element"
+    );
     assert_eq!(fine_mesh.entity_types(2).len(), 1);
     assert_eq!(fine_mesh.entity_types(2)[0], ReferenceCellType::Triangle);
 
@@ -65,34 +70,33 @@ mod test {
     use super::*;
     use crate::dual::DualSpace;
     use ndelement::{
-        ciarlet::{NedelecFirstKindElementFamily, RaviartThomasElementFamily},
+        ciarlet::{LagrangeElementFamily, LagrangeVariant},
         types::Continuity,
     };
     use ndfunctionspace::FunctionSpaceImpl;
     use ndmesh::shapes;
 
     #[test]
-    fn test_bc_space() {
+    fn test_dual0_space() {
         let mesh = shapes::regular_sphere::<f64>(1, ReferenceCellType::Triangle, 1);
 
-        let nc = NedelecFirstKindElementFamily::<f64>::new(1, Continuity::Standard);
-        let nc_space = FunctionSpaceImpl::new(&mesh, &nc);
+        let p1 =
+            LagrangeElementFamily::<f64>::new(1, Continuity::Standard, LagrangeVariant::Equispaced);
+        let p1_space = FunctionSpaceImpl::new(&mesh, &p1);
 
         let rmesh = RefinedMesh::new(&mesh);
-        let rt = RaviartThomasElementFamily::<f64>::new(1, Continuity::Standard);
-        let fine_space = FunctionSpaceImpl::new(rmesh.fine_mesh(), &rt);
-        let bc_space = DualSpace::new(
-            &rmesh,
-            &fine_space,
-            coefficients(&rmesh, &fine_space, Continuity::Standard),
+        let dp0 = LagrangeElementFamily::<f64>::new(
+            0,
+            Continuity::Discontinuous,
+            LagrangeVariant::Equispaced,
         );
-        let dbc_space = DualSpace::new(
+        let fine_space = FunctionSpaceImpl::new(rmesh.fine_mesh(), &dp0);
+        let dual_space = DualSpace::new(
             &rmesh,
             &fine_space,
             coefficients(&rmesh, &fine_space, Continuity::Discontinuous),
         );
 
-        assert_eq!(nc_space.process_size(), bc_space.dim());
-        assert_eq!(2 * nc_space.process_size(), dbc_space.dim());
+        assert_eq!(p1_space.process_size(), dual_space.dim());
     }
 }
