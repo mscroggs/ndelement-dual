@@ -9,7 +9,7 @@ use rlst::SingularValueDecomposition;
 
 fn main() {
     for i in 0..4 {
-        let mesh = regular_sphere::<f64>(i, ReferenceCellType::Triangle);
+        let mesh = regular_sphere::<f64>(i, ReferenceCellType::Triangle, 1);
         let rt = RaviartThomasElementFamily::<f64>::new(1, Continuity::Standard);
         let nc = NedelecFirstKindElementFamily::<f64>::new(1, Continuity::Standard);
 

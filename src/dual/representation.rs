@@ -45,7 +45,7 @@ pub fn coefficients<
         fine_space.mesh() as *const FineG
     );
 
-    let mut coefficients = vec![HashMap::new(); coarse_space.local_size()];
+    let mut coefficients = vec![HashMap::new(); coarse_space.process_size()];
 
     assert_eq!(fine_space.elements().len(), 1);
     let fine_e = &fine_space.elements()[0];
@@ -357,8 +357,80 @@ mod test {
     use rlst::rlst_dynamic_array;
 
     #[test]
+    fn test_lagrange_triangle_coefficients() {
+        let mesh = shapes::regular_sphere::<f64>(0, ReferenceCellType::Triangle, 1);
+        let rmesh = RefinedMesh::new(&mesh);
+
+        let family =
+            LagrangeElementFamily::<f64>::new(1, Continuity::Standard, LagrangeVariant::Equispaced);
+        let space = FunctionSpaceImpl::new(&mesh, &family);
+        let fine_space = FunctionSpaceImpl::new(rmesh.fine_mesh(), &family);
+
+        assert_eq!(space.global_size(), 6);
+        assert_eq!(fine_space.global_size(), 26);
+
+        let coefficients = coefficients(&rmesh, &space, &fine_space);
+        for c in coefficients {
+            let mut ones = 0;
+            let mut halves = 0;
+            let mut thirds = 0;
+            for i in c.values() {
+                if (1.0 - i).abs() < 1e-5 {
+                    ones += 1;
+                } else if (0.5 - i).abs() < 1e-5 {
+                    halves += 1;
+                } else {
+                    assert!((1.0 / 3.0 - i).abs() < 1e-5);
+                    thirds += 1;
+                }
+            }
+            assert_eq!(ones, 1);
+            assert_eq!(thirds, 4);
+            assert_eq!(halves, 4);
+        }
+    }
+
+    #[test]
+    fn test_lagrange_quadrilateral_coefficients() {
+        let mesh = shapes::unit_cube_boundary::<f64>(1, 1, 1, ReferenceCellType::Quadrilateral, 1);
+        let rmesh = RefinedMesh::new(&mesh);
+
+        let family =
+            LagrangeElementFamily::<f64>::new(1, Continuity::Standard, LagrangeVariant::Equispaced);
+        let space = FunctionSpaceImpl::new(&mesh, &family);
+        let fine_space = FunctionSpaceImpl::new(rmesh.fine_mesh(), &family);
+
+        use ndmesh::traits::GmshExport;
+        mesh.export_as_gmsh("mesh.msh");
+        rmesh.fine_mesh().export_as_gmsh("rmesh.msh");
+
+        assert_eq!(space.global_size(), 8);
+        assert_eq!(fine_space.global_size(), 26);
+
+        let coefficients = coefficients(&rmesh, &space, &fine_space);
+        for c in coefficients {
+            let mut ones = 0;
+            let mut halves = 0;
+            let mut quarters = 0;
+            for i in c.values() {
+                if (1.0 - i).abs() < 1e-5 {
+                    ones += 1;
+                } else if (0.5 - i).abs() < 1e-5 {
+                    halves += 1;
+                } else {
+                    assert!((0.25 - i).abs() < 1e-5);
+                    quarters += 1;
+                }
+            }
+            assert_eq!(ones, 1);
+            assert_eq!(halves, 3);
+            assert_eq!(quarters, 3);
+        }
+    }
+
+    #[test]
     fn test_lagrange_triangles() {
-        let mesh = shapes::regular_sphere::<f64>(1, ReferenceCellType::Triangle);
+        let mesh = shapes::regular_sphere::<f64>(1, ReferenceCellType::Triangle, 1);
         let rmesh = RefinedMesh::new(&mesh);
         let family =
             LagrangeElementFamily::<f64>::new(1, Continuity::Standard, LagrangeVariant::Equispaced);
@@ -380,7 +452,7 @@ mod test {
 
     #[test]
     fn test_lagrange_triangles_mixed_degree() {
-        let mesh = shapes::regular_sphere::<f64>(1, ReferenceCellType::Triangle);
+        let mesh = shapes::regular_sphere::<f64>(1, ReferenceCellType::Triangle, 1);
         let rmesh = RefinedMesh::new(&mesh);
         let family =
             LagrangeElementFamily::<f64>::new(1, Continuity::Standard, LagrangeVariant::Equispaced);
@@ -404,7 +476,7 @@ mod test {
 
     #[test]
     fn test_lagrange_triangles_mixed_continuity() {
-        let mesh = shapes::regular_sphere::<f64>(1, ReferenceCellType::Triangle);
+        let mesh = shapes::regular_sphere::<f64>(1, ReferenceCellType::Triangle, 1);
         let rmesh = RefinedMesh::new(&mesh);
         let family =
             LagrangeElementFamily::<f64>::new(1, Continuity::Standard, LagrangeVariant::Equispaced);
@@ -431,7 +503,7 @@ mod test {
 
     #[test]
     fn test_lagrange_quads() {
-        let mesh = shapes::screen::<f64>(1, ReferenceCellType::Quadrilateral);
+        let mesh = shapes::screen::<f64>(1, ReferenceCellType::Quadrilateral, 1);
         let rmesh = RefinedMesh::new(&mesh);
 
         let family =
@@ -443,73 +515,31 @@ mod test {
 
         let coefficients = coefficients(&rmesh, &space, &fine_space);
 
-        assert_relative_eq!(coefficients[0][&0], 1.0);
-        assert_relative_eq!(coefficients[0][&24], 3.0 / 4.0);
-        assert_relative_eq!(coefficients[0][&21], 1.0 / 2.0);
-        assert_relative_eq!(coefficients[0][&23], 1.0 / 4.0);
-        assert_relative_eq!(coefficients[0][&5], 3.0 / 4.0);
-        assert_relative_eq!(coefficients[0][&4], 9.0 / 16.0);
-        assert_relative_eq!(coefficients[0][&22], 3.0 / 8.0);
-        assert_relative_eq!(coefficients[0][&19], 3.0 / 16.0);
-        assert_relative_eq!(coefficients[0][&1], 1.0 / 2.0);
-        assert_relative_eq!(coefficients[0][&3], 3.0 / 8.0);
-        assert_relative_eq!(coefficients[0][&2], 1.0 / 4.0);
-        assert_relative_eq!(coefficients[0][&16], 1.0 / 8.0);
-        assert_relative_eq!(coefficients[0][&8], 1.0 / 4.0);
-        assert_relative_eq!(coefficients[0][&7], 3.0 / 16.0);
-        assert_relative_eq!(coefficients[0][&10], 1.0 / 8.0);
-        assert_relative_eq!(coefficients[0][&13], 1.0 / 16.0);
+        let expected_coeffs = vec![
+            (1.0, 1),
+            (1.0 / 2.0, 2),
+            (1.0 / 4.0, 3),
+            (1.0 / 8.0, 2),
+            (1.0 / 16.0, 1),
+            (3.0 / 4.0, 2),
+            (3.0 / 8.0, 2),
+            (3.0 / 16.0, 2),
+            (9.0 / 16.0, 1),
+        ];
 
-        assert_relative_eq!(coefficients[1][&6], 1.0);
-        assert_relative_eq!(coefficients[1][&8], 3.0 / 4.0);
-        assert_relative_eq!(coefficients[1][&1], 1.0 / 2.0);
-        assert_relative_eq!(coefficients[1][&5], 1.0 / 4.0);
-        assert_relative_eq!(coefficients[1][&11], 3.0 / 4.0);
-        assert_relative_eq!(coefficients[1][&7], 9.0 / 16.0);
-        assert_relative_eq!(coefficients[1][&3], 3.0 / 8.0);
-        assert_relative_eq!(coefficients[1][&4], 3.0 / 16.0);
-        assert_relative_eq!(coefficients[1][&9], 1.0 / 2.0);
-        assert_relative_eq!(coefficients[1][&10], 3.0 / 8.0);
-        assert_relative_eq!(coefficients[1][&2], 1.0 / 4.0);
-        assert_relative_eq!(coefficients[1][&22], 1.0 / 8.0);
-        assert_relative_eq!(coefficients[1][&14], 1.0 / 4.0);
-        assert_relative_eq!(coefficients[1][&13], 3.0 / 16.0);
-        assert_relative_eq!(coefficients[1][&16], 1.0 / 8.0);
-        assert_relative_eq!(coefficients[1][&19], 1.0 / 16.0);
-
-        assert_relative_eq!(coefficients[2][&18], 1.0);
-        assert_relative_eq!(coefficients[2][&23], 3.0 / 4.0);
-        assert_relative_eq!(coefficients[2][&21], 1.0 / 2.0);
-        assert_relative_eq!(coefficients[2][&24], 1.0 / 4.0);
-        assert_relative_eq!(coefficients[2][&20], 3.0 / 4.0);
-        assert_relative_eq!(coefficients[2][&19], 9.0 / 16.0);
-        assert_relative_eq!(coefficients[2][&22], 3.0 / 8.0);
-        assert_relative_eq!(coefficients[2][&4], 3.0 / 16.0);
-        assert_relative_eq!(coefficients[2][&15], 1.0 / 2.0);
-        assert_relative_eq!(coefficients[2][&16], 3.0 / 8.0);
-        assert_relative_eq!(coefficients[2][&2], 1.0 / 4.0);
-        assert_relative_eq!(coefficients[2][&3], 1.0 / 8.0);
-        assert_relative_eq!(coefficients[2][&17], 1.0 / 4.0);
-        assert_relative_eq!(coefficients[2][&13], 3.0 / 16.0);
-        assert_relative_eq!(coefficients[2][&10], 1.0 / 8.0);
-        assert_relative_eq!(coefficients[2][&7], 1.0 / 16.0);
-
-        assert_relative_eq!(coefficients[3][&12], 1.0);
-        assert_relative_eq!(coefficients[3][&14], 3.0 / 4.0);
-        assert_relative_eq!(coefficients[3][&9], 1.0 / 2.0);
-        assert_relative_eq!(coefficients[3][&11], 1.0 / 4.0);
-        assert_relative_eq!(coefficients[3][&17], 3.0 / 4.0);
-        assert_relative_eq!(coefficients[3][&13], 9.0 / 16.0);
-        assert_relative_eq!(coefficients[3][&10], 3.0 / 8.0);
-        assert_relative_eq!(coefficients[3][&7], 3.0 / 16.0);
-        assert_relative_eq!(coefficients[3][&15], 1.0 / 2.0);
-        assert_relative_eq!(coefficients[3][&16], 3.0 / 8.0);
-        assert_relative_eq!(coefficients[3][&2], 1.0 / 4.0);
-        assert_relative_eq!(coefficients[3][&3], 1.0 / 8.0);
-        assert_relative_eq!(coefficients[3][&20], 1.0 / 4.0);
-        assert_relative_eq!(coefficients[3][&19], 3.0 / 16.0);
-        assert_relative_eq!(coefficients[3][&22], 1.0 / 8.0);
-        assert_relative_eq!(coefficients[3][&4], 1.0 / 16.0);
+        for coeffs in &coefficients {
+            let mut counts = expected_coeffs.iter().map(|_| 0).collect::<Vec<_>>();
+            for c in coeffs.values() {
+                for (i, (value, _)) in expected_coeffs.iter().enumerate() {
+                    if (value - c).abs() < 1e-5 {
+                        counts[i] += 1;
+                    }
+                }
+            }
+            for ((_, e), c) in izip!(&expected_coeffs, &counts) {
+                assert_eq!(e, c);
+            }
+        }
 
         let bary_space = DualSpace::new(&rmesh, &fine_space, coefficients);
 
@@ -526,7 +556,7 @@ mod test {
     #[test]
     fn test_lagrange_integral() {
         //! Test that integral(v) is the same for Lagrange and barycentric Lagrange
-        let mesh = shapes::regular_sphere::<f64>(2, ReferenceCellType::Triangle);
+        let mesh = shapes::regular_sphere::<f64>(2, ReferenceCellType::Triangle, 1);
         let rmesh = RefinedMesh::new(&mesh);
 
         let family =
@@ -557,7 +587,7 @@ mod test {
         let mut jinv = rlst_dynamic_array!(f64, [2, 3, npts]);
         let mut jdets = vec![0.0; npts];
 
-        let mut coarse_result = vec![0.0; coarse_space.local_size()];
+        let mut coarse_result = vec![0.0; coarse_space.process_size()];
         let gmap = mesh.geometry_map(ReferenceCellType::Triangle, 1, &pts);
         for cell in mesh.entity_iter(ReferenceCellType::Triangle) {
             let dofs = coarse_space
@@ -575,7 +605,7 @@ mod test {
 
         let fine_mesh = rmesh.fine_mesh();
 
-        let mut fine_result = vec![0.0; fine_space.local_size()];
+        let mut fine_result = vec![0.0; fine_space.process_size()];
         let gmap = fine_mesh.geometry_map(ReferenceCellType::Triangle, 1, &pts);
         for cell in fine_mesh.entity_iter(ReferenceCellType::Triangle) {
             let dofs = fine_space
@@ -604,7 +634,7 @@ mod test {
     #[test]
     fn test_rt_integral() {
         //! Test that integral(v[0]) is the same for RT and barycentric RT
-        let mesh = shapes::screen::<f64>(1, ReferenceCellType::Triangle);
+        let mesh = shapes::screen::<f64>(1, ReferenceCellType::Triangle, 1);
         let rmesh = RefinedMesh::new(&mesh);
 
         let family = RaviartThomasElementFamily::<f64>::new(1, Continuity::Standard);
@@ -646,7 +676,7 @@ mod test {
 
         let mut local_vector = vec![0.0; 3];
 
-        let mut coarse_result = vec![0.0; coarse_space.local_size()];
+        let mut coarse_result = vec![0.0; coarse_space.process_size()];
         let gmap = mesh.geometry_map(ReferenceCellType::Triangle, 1, &pts);
         for cell in mesh.entity_iter(ReferenceCellType::Triangle) {
             let dofs = coarse_space
@@ -672,7 +702,7 @@ mod test {
 
         let fine_mesh = rmesh.fine_mesh();
 
-        let mut fine_result = vec![0.0; fine_space.local_size()];
+        let mut fine_result = vec![0.0; fine_space.process_size()];
         let gmap = fine_mesh.geometry_map(ReferenceCellType::Triangle, 1, &pts);
         for cell in fine_mesh.entity_iter(ReferenceCellType::Triangle) {
             let dofs = fine_space
@@ -695,8 +725,6 @@ mod test {
                 fine_result[*dof] += value;
             }
         }
-
-        dbg!(&coefficients[3]);
 
         for (i, c) in coefficients.iter().enumerate() {
             assert_relative_eq!(

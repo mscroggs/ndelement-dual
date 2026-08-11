@@ -83,7 +83,8 @@ pub fn assemble<
         trial_space.mesh() as *const G
     );
 
-    let mut matrix = rlst_dynamic_array!(T, [test_space.local_size(), trial_space.local_size()]);
+    let mut matrix =
+        rlst_dynamic_array!(T, [test_space.process_size(), trial_space.process_size()]);
 
     let geometry_degree = test_space
         .mesh()
@@ -307,7 +308,7 @@ mod test {
 
     #[test]
     fn test_lagrange_assembly() {
-        let mesh = shapes::regular_sphere::<f64>(0, ReferenceCellType::Triangle);
+        let mesh = shapes::regular_sphere::<f64>(0, ReferenceCellType::Triangle, 1);
         let family =
             LagrangeElementFamily::<f64>::new(1, Continuity::Standard, LagrangeVariant::Equispaced);
         let space = FunctionSpaceImpl::new(&mesh, &family);
@@ -327,7 +328,7 @@ mod test {
 
     #[test]
     fn test_lagrange_quadrilateral() {
-        let mesh = shapes::screen::<f64>(1, ReferenceCellType::Quadrilateral);
+        let mesh = shapes::screen::<f64>(1, ReferenceCellType::Quadrilateral, 1);
         let family =
             LagrangeElementFamily::<f64>::new(1, Continuity::Standard, LagrangeVariant::Equispaced);
         let space = FunctionSpaceImpl::new(&mesh, &family);
@@ -355,7 +356,7 @@ mod test {
 
     #[test]
     fn test_rt_nc_assembly() {
-        let mesh = shapes::regular_sphere::<f64>(0, ReferenceCellType::Triangle);
+        let mesh = shapes::regular_sphere::<f64>(0, ReferenceCellType::Triangle, 1);
         let rt = RaviartThomasElementFamily::<f64>::new(1, Continuity::Standard);
         let nc = NedelecFirstKindElementFamily::<f64>::new(1, Continuity::Standard);
         let rt_space = FunctionSpaceImpl::new(&mesh, &rt);
@@ -373,7 +374,7 @@ mod test {
 
     #[test]
     fn test_rt_nc_assembly_randomly_numbered() {
-        let mesh1 = shapes::unit_cube_boundary::<f64>(3, 3, 3, ReferenceCellType::Triangle);
+        let mesh1 = shapes::unit_cube_boundary::<f64>(3, 3, 3, ReferenceCellType::Triangle, 1);
         let mesh2 = {
             let mut b = SingleElementMeshBuilder::new_with_capacity(
                 3,
@@ -433,7 +434,7 @@ mod test {
 
     #[test]
     fn test_rt_assembly() {
-        let mesh = shapes::regular_sphere::<f64>(0, ReferenceCellType::Triangle);
+        let mesh = shapes::regular_sphere::<f64>(0, ReferenceCellType::Triangle, 1);
 
         let rt = RaviartThomasElementFamily::<f64>::new(1, Continuity::Standard);
         let rt_space = FunctionSpaceImpl::new(&mesh, &rt);
@@ -458,7 +459,7 @@ mod test {
 
     #[test]
     fn test_bc_assembly() {
-        let mesh = shapes::regular_sphere::<f64>(0, ReferenceCellType::Triangle);
+        let mesh = shapes::regular_sphere::<f64>(0, ReferenceCellType::Triangle, 1);
         let rmesh = RefinedMesh::new(&mesh);
 
         let rt = RaviartThomasElementFamily::<f64>::new(1, Continuity::Standard);
@@ -497,7 +498,7 @@ mod test {
 
     #[test]
     fn test_rt_bc_assembly() {
-        let mesh = shapes::regular_sphere::<f64>(0, ReferenceCellType::Triangle);
+        let mesh = shapes::regular_sphere::<f64>(0, ReferenceCellType::Triangle, 1);
         let rmesh = RefinedMesh::new(&mesh);
 
         let rt = RaviartThomasElementFamily::<f64>::new(1, Continuity::Standard);
@@ -542,7 +543,7 @@ mod test {
 
     #[test]
     fn test_rt_rbc_assembly() {
-        let mesh = shapes::regular_sphere::<f64>(0, ReferenceCellType::Triangle);
+        let mesh = shapes::regular_sphere::<f64>(0, ReferenceCellType::Triangle, 1);
         let rmesh = RefinedMesh::new(&mesh);
 
         let rt = RaviartThomasElementFamily::<f64>::new(1, Continuity::Standard);
