@@ -83,7 +83,8 @@ pub fn assemble<
         trial_space.mesh() as *const G
     );
 
-    let mut matrix = rlst_dynamic_array!(T, [test_space.process_size(), trial_space.process_size()]);
+    let mut matrix =
+        rlst_dynamic_array!(T, [test_space.process_size(), trial_space.process_size()]);
 
     let geometry_degree = test_space
         .mesh()

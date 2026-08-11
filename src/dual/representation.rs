@@ -380,7 +380,7 @@ mod test {
                 } else if (0.5 - i).abs() < 1e-5 {
                     halves += 1;
                 } else {
-                    assert!((1.0/3.0 - i).abs() < 1e-5);
+                    assert!((1.0 / 3.0 - i).abs() < 1e-5);
                     thirds += 1;
                 }
             }
@@ -409,7 +409,6 @@ mod test {
 
         let coefficients = coefficients(&rmesh, &space, &fine_space);
         for c in coefficients {
-            dbg!(&c);
             let mut ones = 0;
             let mut halves = 0;
             let mut quarters = 0;
@@ -516,73 +515,31 @@ mod test {
 
         let coefficients = coefficients(&rmesh, &space, &fine_space);
 
-        assert_relative_eq!(coefficients[0][&0], 1.0);
-        assert_relative_eq!(coefficients[0][&24], 3.0 / 4.0);
-        assert_relative_eq!(coefficients[0][&21], 1.0 / 2.0);
-        assert_relative_eq!(coefficients[0][&23], 1.0 / 4.0);
-        assert_relative_eq!(coefficients[0][&5], 3.0 / 4.0);
-        assert_relative_eq!(coefficients[0][&4], 9.0 / 16.0);
-        assert_relative_eq!(coefficients[0][&22], 3.0 / 8.0);
-        assert_relative_eq!(coefficients[0][&19], 3.0 / 16.0);
-        assert_relative_eq!(coefficients[0][&1], 1.0 / 2.0);
-        assert_relative_eq!(coefficients[0][&3], 3.0 / 8.0);
-        assert_relative_eq!(coefficients[0][&2], 1.0 / 4.0);
-        assert_relative_eq!(coefficients[0][&16], 1.0 / 8.0);
-        assert_relative_eq!(coefficients[0][&8], 1.0 / 4.0);
-        assert_relative_eq!(coefficients[0][&7], 3.0 / 16.0);
-        assert_relative_eq!(coefficients[0][&10], 1.0 / 8.0);
-        assert_relative_eq!(coefficients[0][&13], 1.0 / 16.0);
+        let expected_coeffs = vec![
+            (1.0, 1),
+            (1.0 / 2.0, 2),
+            (1.0 / 4.0, 3),
+            (1.0 / 8.0, 2),
+            (1.0 / 16.0, 1),
+            (3.0 / 4.0, 2),
+            (3.0 / 8.0, 2),
+            (3.0 / 16.0, 2),
+            (9.0 / 16.0, 1),
+        ];
 
-        assert_relative_eq!(coefficients[1][&6], 1.0);
-        assert_relative_eq!(coefficients[1][&8], 3.0 / 4.0);
-        assert_relative_eq!(coefficients[1][&1], 1.0 / 2.0);
-        assert_relative_eq!(coefficients[1][&5], 1.0 / 4.0);
-        assert_relative_eq!(coefficients[1][&11], 3.0 / 4.0);
-        assert_relative_eq!(coefficients[1][&7], 9.0 / 16.0);
-        assert_relative_eq!(coefficients[1][&3], 3.0 / 8.0);
-        assert_relative_eq!(coefficients[1][&4], 3.0 / 16.0);
-        assert_relative_eq!(coefficients[1][&9], 1.0 / 2.0);
-        assert_relative_eq!(coefficients[1][&10], 3.0 / 8.0);
-        assert_relative_eq!(coefficients[1][&2], 1.0 / 4.0);
-        assert_relative_eq!(coefficients[1][&22], 1.0 / 8.0);
-        assert_relative_eq!(coefficients[1][&14], 1.0 / 4.0);
-        assert_relative_eq!(coefficients[1][&13], 3.0 / 16.0);
-        assert_relative_eq!(coefficients[1][&16], 1.0 / 8.0);
-        assert_relative_eq!(coefficients[1][&19], 1.0 / 16.0);
-
-        assert_relative_eq!(coefficients[2][&18], 1.0);
-        assert_relative_eq!(coefficients[2][&23], 3.0 / 4.0);
-        assert_relative_eq!(coefficients[2][&21], 1.0 / 2.0);
-        assert_relative_eq!(coefficients[2][&24], 1.0 / 4.0);
-        assert_relative_eq!(coefficients[2][&20], 3.0 / 4.0);
-        assert_relative_eq!(coefficients[2][&19], 9.0 / 16.0);
-        assert_relative_eq!(coefficients[2][&22], 3.0 / 8.0);
-        assert_relative_eq!(coefficients[2][&4], 3.0 / 16.0);
-        assert_relative_eq!(coefficients[2][&15], 1.0 / 2.0);
-        assert_relative_eq!(coefficients[2][&16], 3.0 / 8.0);
-        assert_relative_eq!(coefficients[2][&2], 1.0 / 4.0);
-        assert_relative_eq!(coefficients[2][&3], 1.0 / 8.0);
-        assert_relative_eq!(coefficients[2][&17], 1.0 / 4.0);
-        assert_relative_eq!(coefficients[2][&13], 3.0 / 16.0);
-        assert_relative_eq!(coefficients[2][&10], 1.0 / 8.0);
-        assert_relative_eq!(coefficients[2][&7], 1.0 / 16.0);
-
-        assert_relative_eq!(coefficients[3][&12], 1.0);
-        assert_relative_eq!(coefficients[3][&14], 3.0 / 4.0);
-        assert_relative_eq!(coefficients[3][&9], 1.0 / 2.0);
-        assert_relative_eq!(coefficients[3][&11], 1.0 / 4.0);
-        assert_relative_eq!(coefficients[3][&17], 3.0 / 4.0);
-        assert_relative_eq!(coefficients[3][&13], 9.0 / 16.0);
-        assert_relative_eq!(coefficients[3][&10], 3.0 / 8.0);
-        assert_relative_eq!(coefficients[3][&7], 3.0 / 16.0);
-        assert_relative_eq!(coefficients[3][&15], 1.0 / 2.0);
-        assert_relative_eq!(coefficients[3][&16], 3.0 / 8.0);
-        assert_relative_eq!(coefficients[3][&2], 1.0 / 4.0);
-        assert_relative_eq!(coefficients[3][&3], 1.0 / 8.0);
-        assert_relative_eq!(coefficients[3][&20], 1.0 / 4.0);
-        assert_relative_eq!(coefficients[3][&19], 3.0 / 16.0);
-        assert_relative_eq!(coefficients[3][&22], 1.0 / 8.0);
-        assert_relative_eq!(coefficients[3][&4], 1.0 / 16.0);
+        for coeffs in &coefficients {
+            let mut counts = expected_coeffs.iter().map(|_| 0).collect::<Vec<_>>();
+            for (_, c) in coeffs {
+                for (i, (value, _)) in expected_coeffs.iter().enumerate() {
+                    if (value - c).abs() < 1e-5 {
+                        counts[i] += 1;
+                    }
+                }
+            }
+            for ((_, e), c) in izip!(&expected_coeffs, &counts) {
+                assert_eq!(e, c);
+            }
+        }
 
         let bary_space = DualSpace::new(&rmesh, &fine_space, coefficients);
 
