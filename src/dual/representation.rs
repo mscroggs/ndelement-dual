@@ -412,16 +412,20 @@ mod test {
             dbg!(&c);
             let mut ones = 0;
             let mut halves = 0;
+            let mut quarters = 0;
             for (_, i) in c {
                 if (1.0 - i).abs() < 1e-5 {
                     ones += 1;
-                } else {
-                    assert!((0.5 - i).abs() < 1e-5);
+                } else if (0.5 - i).abs() < 1e-5 {
                     halves += 1;
+                } else {
+                    assert!((0.25 - i).abs() < 1e-5);
+                    quarters += 1;
                 }
             }
             assert_eq!(ones, 1);
-            assert_eq!(halves, 6);
+            assert_eq!(halves, 3);
+            assert_eq!(quarters, 3);
         }
     }
 
